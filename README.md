@@ -175,10 +175,6 @@ https://zadark.com/contact
 
 https://zadark.com/awards
 
-## Star History
-
-[![Star History](https://starchart.cc/ncdai/zadark.svg?variant=adaptive)](https://starchart.cc/ncdai/zadark)
-
 ## Acknowledgments
 
 - https://developer.chrome.com/docs/extensions/mv3/getstarted/

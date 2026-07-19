@@ -2,6 +2,7 @@
 (function () {
   const UPLOAD_PROTOCOL = 'source-url-v2'
   const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+  const MAX_STICKER_DIMENSION = 512
   const MIME_EXTENSIONS = {
     'image/avif': 'avif',
     'image/gif': 'gif',
@@ -23,6 +24,84 @@
     let pathName = ''
     try { pathName = decodeURIComponent(sourceUrl.pathname) } catch (_) { pathName = sourceUrl.pathname }
     return safeFileName(suppliedName || pathName, mimeType)
+  }
+
+  const resizedMimeType = (mimeType) => ['image/jpeg', 'image/png', 'image/webp'].includes(mimeType)
+    ? mimeType
+    : 'image/png'
+
+  const replaceFileExtension = (fileName, mimeType) => {
+    const extension = MIME_EXTENSIONS[mimeType] || 'png'
+    const baseName = safeFileName(fileName, '').replace(/\.[a-zA-Z0-9]{1,8}$/, '') || 'sticker'
+    return `${baseName}.${extension}`
+  }
+
+  const resizeImageBlob = async (blob, fileName) => {
+    const objectUrl = URL.createObjectURL(blob)
+    const image = new Image()
+    try {
+      await new Promise((resolve, reject) => {
+        image.onload = resolve
+        image.onerror = () => reject(new Error('The sticker image could not be decoded for resizing.'))
+        image.src = objectUrl
+      })
+      const originalWidth = image.naturalWidth
+      const originalHeight = image.naturalHeight
+      if (!originalWidth || !originalHeight) throw new Error('The sticker image has invalid dimensions.')
+      if (blob.type === 'image/gif') {
+        console.debug('[ZaDarkSticker] zmenu MAIN resize result', {
+          resized: false,
+          reason: 'animated GIF preserved unchanged',
+          originalWidth,
+          originalHeight,
+          width: originalWidth,
+          height: originalHeight,
+          mimeType: blob.type,
+          size: blob.size
+        })
+        return { blob, fileName }
+      }
+      if (originalWidth <= MAX_STICKER_DIMENSION && originalHeight <= MAX_STICKER_DIMENSION) {
+        console.debug('[ZaDarkSticker] zmenu MAIN resize result', {
+          resized: false,
+          originalWidth,
+          originalHeight,
+          width: originalWidth,
+          height: originalHeight,
+          mimeType: blob.type,
+          size: blob.size
+        })
+        return { blob, fileName }
+      }
+      const scale = Math.min(MAX_STICKER_DIMENSION / originalWidth, MAX_STICKER_DIMENSION / originalHeight)
+      const width = Math.max(1, Math.round(originalWidth * scale))
+      const height = Math.max(1, Math.round(originalHeight * scale))
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const context = canvas.getContext('2d')
+      if (!context) throw new Error('Could not create an image resizing context.')
+      context.drawImage(image, 0, 0, width, height)
+      const outputMimeType = resizedMimeType(blob.type)
+      const resizedBlob = await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not encode the resized sticker image.')), outputMimeType, 0.92)
+      })
+      const resizedFileName = replaceFileExtension(fileName, outputMimeType)
+      console.debug('[ZaDarkSticker] zmenu MAIN resize result', {
+        resized: true,
+        originalWidth,
+        originalHeight,
+        width,
+        height,
+        inputMimeType: blob.type,
+        outputMimeType,
+        inputSize: blob.size,
+        outputSize: resizedBlob.size
+      })
+      return { blob: resizedBlob, fileName: resizedFileName }
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+    }
   }
 
   const downloadSourceImage = async (sourceUrl) => {
@@ -91,6 +170,11 @@
       if (!blob.size) throw new Error('The sticker file is empty.')
       if (!blob.type || !blob.type.startsWith('image/')) throw new Error('The sticker file must be an image.')
       if (blob.size > MAX_UPLOAD_SIZE) throw new Error('The sticker image must not exceed 10 MiB.')
+      const resized = await resizeImageBlob(blob, fileName)
+      blob = resized.blob
+      fileName = resized.fileName
+      if (!blob.size) throw new Error('The resized sticker file is empty.')
+      if (blob.size > MAX_UPLOAD_SIZE) throw new Error('The resized sticker image must not exceed 10 MiB.')
       const form = new FormData()
       form.append('file', blob, fileName)
       console.debug('[ZaDarkSticker] zmenu MAIN multipart upload request', {

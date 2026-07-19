@@ -27,11 +27,22 @@
     return { ...value, data: { ...value.data, zpw_enk: value.data.zpw_enk ? '[redacted]' : value.data.zpw_enk } }
   }
   const getJson = async (step, url) => {
-    console.debug('[ZaDarkSticker] Zalo request', { step, method: 'GET', url, credentials: 'include' })
+    console.log('[ZaDarkSticker] Zalo request', {
+      step,
+      method: 'GET',
+      url,
+      credentials: 'include',
+      body: null
+    })
     const response = await fetch(url, { credentials: 'include' })
     const responseText = await response.text()
     const responseBody = parseJson(responseText)
-    console.debug('[ZaDarkSticker] Zalo response', { step, status: response.status, ok: response.ok, body: responseForLog(step, responseBody) })
+    console.log('[ZaDarkSticker] Zalo response', {
+      step,
+      status: response.status,
+      ok: response.ok,
+      body: responseForLog(step, responseBody)
+    })
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     return responseBody
   }
@@ -40,7 +51,7 @@
     try {
       const responseText = await response.text()
       const responseEnvelope = parseJson(responseText)
-      console.debug('[ZaDarkSticker] Zalo response', {
+      console.log('[ZaDarkSticker] Zalo response', {
         step: `photo-url:${variant}`,
         status: response.status,
         ok: response.ok,
@@ -55,7 +66,12 @@
           console.warn('[ZaDarkSticker] response diagnostic failed', { variant, error })
         }
       }
-      console.debug('[ZaDarkSticker] Zalo response (decrypted)', { step: `photo-url:${variant}`, status: response.status, ok: response.ok, body: responseBody })
+      console.log('[ZaDarkSticker] Zalo response (decrypted)', {
+        step: `photo-url:${variant}`,
+        status: response.status,
+        ok: response.ok,
+        body: responseBody
+      })
     } catch (error) {
       console.warn('[ZaDarkSticker] response diagnostic failed', { variant, error })
     }
@@ -74,15 +90,15 @@
   }
   const postVariant = async ({ variant, endpoint, payload, cipher }) => {
     try {
-      console.debug('[ZaDarkSticker] send request (decrypted)', { variant, payload })
       const params = await cipher.encrypt(payload)
-      console.debug('[ZaDarkSticker] Zalo request', {
+      console.log('[ZaDarkSticker] Zalo request', {
         step: `photo-url:${variant}`,
         method: 'POST',
         url: endpoint,
         credentials: 'include',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: { params }
+        body: { params },
+        decryptedBody: payload
       })
       const response = await fetch(endpoint, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ params })
@@ -93,20 +109,24 @@
       if (errorCode !== null && errorCode !== 0) throw new Error(`Zalo returned error_code ${errorCode}.`)
       return { variant, ok: true }
     } catch (error) {
-      console.error('[ZaDarkSticker] send variant failed', { variant, error })
+      console.error('[ZaDarkSticker] send variant failed', {
+        variant,
+        message: error && error.message ? error.message : String(error),
+        error
+      })
       throw error
     }
   }
   const resolveGroupReceiverId = async (receiverId, cipher) => {
     const payload = { globalUids: JSON.stringify([receiverId]) }
-    console.debug('[ZaDarkSticker] Zalo request (decrypted)', { step: 'group-id-resolution', payload })
+    console.log('[ZaDarkSticker] Zalo request (decrypted)', { step: 'group-id-resolution', body: payload })
     const params = await cipher.encrypt(payload)
     const url = new URL('https://tt-profile-wpa.chat.zalo.me/api/gid/decrypt')
     url.search = new URLSearchParams({ zpw_ver: '669', zpw_type: '30', params })
     const encrypted = await getJson('group-id-resolution', url.href)
     if (!encrypted.data) throw new Error('Group decrypt API returned no encrypted data.')
     const group = JSON.parse(await cipher.decrypt(encrypted.data))
-    console.debug('[ZaDarkSticker] Zalo response (decrypted)', { step: 'group-id-resolution', body: group })
+    console.log('[ZaDarkSticker] Zalo response (decrypted)', { step: 'group-id-resolution', body: group })
     const resolvedId = group.data && group.data.data && group.data.data[receiverId]
     if (!resolvedId) throw new Error('Group mapping was not returned.')
     return resolvedId
@@ -199,7 +219,7 @@
       console.error('[ZaDarkSticker] MAIN send request is missing a valid id')
       return
     }
-    console.debug('[ZaDarkSticker] MAIN send request received', { id: request.id, payload: request.payload })
+    console.log('[ZaDarkSticker] MAIN send request received', { id: request.id, body: request.payload })
     const result = await send(request.payload || {})
     document.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail: JSON.stringify({ id: request.id, result }) }))
   })

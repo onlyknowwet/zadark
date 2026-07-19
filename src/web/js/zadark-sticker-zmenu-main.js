@@ -217,9 +217,11 @@
 
   const downloadSourceImage = async (sourceUrl) => {
     let response
-    console.debug('[ZaDarkSticker] zmenu MAIN source download request', {
+    console.log('[ZaDarkSticker] zmenu MAIN source download request', {
+      method: 'GET',
       sourceUrl: sourceUrl.href,
-      credentials: 'omit'
+      credentials: 'omit',
+      body: null
     })
     try {
       response = await fetch(sourceUrl.href, { credentials: 'omit' })
@@ -229,12 +231,12 @@
       throw new Error(message)
     }
     const contentType = (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase()
-    console.debug('[ZaDarkSticker] zmenu MAIN source download response', { status: response.status, contentType })
+    console.log('[ZaDarkSticker] zmenu MAIN source download response', { status: response.status, ok: response.ok, contentType })
     if (!response.ok) throw new Error(`The source image could not be downloaded by zmenu: HTTP ${response.status}.`)
     if (!contentType.startsWith('image/')) throw new Error('The source URL did not return an image Content-Type.')
     try {
       const blob = await response.blob()
-      console.debug('[ZaDarkSticker] zmenu MAIN source download body', { status: response.status, contentType, size: blob.size })
+      console.log('[ZaDarkSticker] zmenu MAIN source download body', { status: response.status, contentType, size: blob.size })
       return { blob, contentType }
     } catch (_) {
       throw new Error('The source image could not be downloaded by zmenu. The image host may block cross-origin requests.')
@@ -253,7 +255,16 @@
     }
     const payload = request.payload || {}
     const sourceType = payload.sourceType || (typeof payload.sourceUrl === 'string' ? 'url' : 'file')
-    console.debug('[ZaDarkSticker] zmenu MAIN request', { id: request.id, protocol: payload.protocol, sourceType })
+    console.log('[ZaDarkSticker] zmenu MAIN request received', {
+      id: request.id,
+      body: {
+        protocol: payload.protocol,
+        sourceType,
+        sourceUrl: payload.sourceUrl,
+        fileName: payload.fileName,
+        dataUrl: typeof payload.dataUrl === 'string' ? `[data URL, ${payload.dataUrl.length} characters]` : undefined
+      }
+    })
     let result
     let uploadResponse
     try {
@@ -288,8 +299,12 @@
         if (!auth) throw new Error('No zmenu OpenAPI access token. Sign out and sign in again so the extension can capture the access-token response.')
         const form = new FormData()
         form.append('file', blob, fileName)
-        console.debug('[ZaDarkSticker] zmenu MAIN multipart upload request', {
-          endpoint: '/api/admin/upload/photo', fileName, mimeType: blob.type, size: blob.size, authorizationSource: auth.source
+        console.log('[ZaDarkSticker] zmenu MAIN multipart upload request', {
+          method: 'POST',
+          url: '/api/admin/upload/photo',
+          headers: { Authorization: 'Bearer [redacted]' },
+          body: { file: { name: fileName, type: blob.type, size: blob.size } },
+          authorizationSource: auth.source
         })
         let response
         try {
@@ -299,7 +314,7 @@
           console.error('[ZaDarkSticker] zmenu MAIN multipart upload response', { ok: false, message })
           throw new Error(message)
         }
-        console.debug('[ZaDarkSticker] zmenu MAIN multipart upload response', { status: response.status })
+        console.log('[ZaDarkSticker] zmenu MAIN multipart upload response', { status: response.status, ok: response.ok })
         let data
         try {
           data = await response.json()
@@ -309,7 +324,11 @@
           if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
           throw new Error('Upload returned an invalid JSON response.')
         }
-        console.debug('[ZaDarkSticker] zmenu MAIN upload JSON response', data)
+        console.log('[ZaDarkSticker] zmenu MAIN upload response body', {
+          status: response.status,
+          ok: response.ok,
+          body: data
+        })
         return { response, data }
       }
       let uploaded = await upload()
@@ -328,7 +347,7 @@
       if (!parsedPhotoUrl || parsedPhotoUrl.protocol !== 'https:' || !parsedPhotoUrl.hostname) throw new Error('Upload succeeded but no valid HTTPS photoUrl was returned.')
       result = { ok: true, photoUrl, message: 'Uploaded.', uploadResponse }
     } catch (error) { result = { ok: false, message: error.message || String(error), uploadResponse } }
-    console.debug('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message, photoUrl: result.photoUrl, uploadResponse: result.uploadResponse })
+    console.log('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message, photoUrl: result.photoUrl, uploadResponse: result.uploadResponse })
     document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadResult:v3', { detail: JSON.stringify({ id: request.id, result }) }))
   })
 })()

@@ -76,28 +76,6 @@
       : null
   }
 
-  const isChatViewMounted = () => {
-    const chatView = document.getElementById('chatViewContainer')
-    if (!chatView || !chatView.isConnected || chatView.hidden || chatView.getAttribute('aria-hidden') === 'true') return false
-    const style = global.getComputedStyle(chatView)
-    return style.display !== 'none' && style.visibility !== 'hidden'
-  }
-
-  const hasSelectedConversation = () => {
-    const conversationList = document.getElementById('conversationListId')
-    return !!(conversationList && conversationList.querySelector([
-      '.msg-item.selected',
-      '.msg-item.active',
-      '.msg-item--selected',
-      '.msg-item[aria-selected="true"]',
-      '.conv-item.selected',
-      '.selected',
-      '[role="option"][aria-selected="true"]',
-      '[aria-current="true"]',
-      '[data-selected="true"]'
-    ].join(',')))
-  }
-
   const logConversationState = (source) => {
     console.debug('[ZaDarkSticker] conversation state', { conversationId: currentConversationId, source })
   }
@@ -107,13 +85,25 @@
     if (detectedId) {
       currentConversationId = detectedId
       logConversationState('detected')
-    } else if (isChatViewMounted() || hasSelectedConversation()) {
+    } else if (currentConversationId) {
       logConversationState('retained')
     } else {
-      currentConversationId = null
-      logConversationState('cleared')
+      logConversationState('uninitialized')
     }
     return currentConversationId
+  }
+
+  const handleConversationChange = (event) => {
+    const eventConversationId = typeof event.detail === 'string' && event.detail.trim()
+      ? event.detail.trim()
+      : null
+    if (eventConversationId) {
+      currentConversationId = eventConversationId
+      logConversationState('event')
+      return
+    }
+
+    syncCurrentConversation()
   }
 
   const getConversationIdForSend = () => {
@@ -124,17 +114,16 @@
       return currentConversationId
     }
 
-    if (currentConversationId && isChatViewMounted()) {
+    if (currentConversationId) {
       logConversationState('retained')
       return currentConversationId
     }
 
-    currentConversationId = null
-    logConversationState('cleared')
+    logConversationState('uninitialized')
     return null
   }
 
-  document.addEventListener('@ZaDark:CONV_ID_CHANGE', syncCurrentConversation)
+  document.addEventListener('@ZaDark:CONV_ID_CHANGE', handleConversationChange)
   const conversationObserver = new MutationObserver(syncCurrentConversation)
   conversationObserver.observe(document.body, {
     attributes: true,

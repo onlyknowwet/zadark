@@ -143,18 +143,19 @@
    * @param {string} convId
    */
   function fireConvIdChange (convId) {
+    convId = normalizeConvId(convId)
+    if (!convId) {
+      return
+    }
+
     const currentConvId = document.body.getAttribute('data-current-conv-id')
     if (convId === currentConvId) {
       return
     }
 
-    if (!convId) {
-      document.body.removeAttribute('data-current-conv-id')
-    } else {
-      document.body.setAttribute('data-current-conv-id', convId)
-    }
+    document.body.setAttribute('data-current-conv-id', convId)
 
-    document.dispatchEvent(new CustomEvent('@ZaDark:CONV_ID_CHANGE'))
+    document.dispatchEvent(new CustomEvent('@ZaDark:CONV_ID_CHANGE', { detail: convId }))
   }
 
   function getSelectedConversation () {
@@ -193,25 +194,10 @@
     return getConvIdFromElement(main, false)
   }
 
-  function isChatViewMounted () {
-    const chatView = document.getElementById('chatViewContainer')
-    if (!chatView || !chatView.isConnected || chatView.hidden || chatView.getAttribute('aria-hidden') === 'true') {
-      return false
-    }
-
-    const style = window.getComputedStyle(chatView)
-    return style.display !== 'none' && style.visibility !== 'hidden'
-  }
-
   function refreshCurrentConvId () {
     const convId = detectCurrentConvId()
     if (convId) {
       fireConvIdChange(convId)
-      return
-    }
-
-    if (!isChatViewMounted() && !getSelectedConversation()) {
-      fireConvIdChange(null)
     }
   }
 

@@ -7,6 +7,13 @@
 */
 
 (function (global) {
+  const normalizeError = (error, fallback) => {
+    if (error instanceof Error) return error
+    if (typeof error === 'string' && error) return new Error(error)
+    if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+    return new Error(fallback)
+  }
+
   const ZaDarkBrowser = {
     name: 'Chrome',
     changelogURL: 'https://zadark.com/blog/changelog',
@@ -86,7 +93,20 @@
     },
 
     sendMessage: (params) => {
-      return chrome.runtime.sendMessage(params)
+      return new Promise((resolve, reject) => {
+        try {
+          chrome.runtime.sendMessage(params, (result) => {
+            const error = chrome.runtime.lastError
+            if (error) {
+              reject(normalizeError(error, 'Extension messaging failed.'))
+              return
+            }
+            resolve(result)
+          })
+        } catch (error) {
+          reject(normalizeError(error, 'Extension messaging failed.'))
+        }
+      })
     },
 
     sendMessage2Tab: async function (tabId, action, payload) {
@@ -94,17 +114,22 @@
         return
       }
 
-      await chrome.tabs.sendMessage(tabId, {
+      await Promise.resolve().then(() => chrome.tabs.sendMessage(tabId, {
         action,
         payload
-      })
+      })).catch((error) => { throw normalizeError(error, 'Could not message a Zalo tab.') })
     },
 
     sendMessage2ZaloTabs: async function (action, payload) {
-      const tabs = await this.getZaloTabs()
-      tabs.forEach((tab) => {
-        this.sendMessage2Tab(tab.id, action, payload)
-      })
+      try {
+        const tabs = await this.getZaloTabs()
+        const results = await Promise.allSettled(tabs.map((tab) => this.sendMessage2Tab(tab.id, action, payload)))
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('[ZaDark] Zalo tab broadcast failed:', normalizeError(result.reason, 'Unknown tab messaging failure.').message)
+        })
+      } catch (error) {
+        console.error('[ZaDark] Zalo tab lookup failed:', normalizeError(error, 'Unknown tab lookup failure.').message)
+      }
     },
 
     addMessageListener: (callback) => {

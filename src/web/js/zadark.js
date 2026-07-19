@@ -6,9 +6,16 @@
 
 (function () {
   // const log = console.log.bind(console, '[zadark-reaction]')
+  const normalizeError = (error, fallback) => {
+    if (error instanceof Error) return error
+    if (typeof error === 'string' && error) return new Error(error)
+    if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+    return new Error(fallback)
+  }
+  const logAsyncError = (context, error) => console.error(`[ZaDark] ${context}:`, normalizeError(error, 'Unexpected extension failure.').message)
 
   ZaDarkBrowser.initClassNames()
-  ZaDarkUtils.initPageSettings()
+  ZaDarkUtils.initPageSettings().catch((error) => logAsyncError('Page settings initialization failed', error))
 
   document.documentElement.setAttribute('data-zadark-emoji-url', ZaDarkBrowser.getURL('/images/zalo-emoji-md.png'))
 
@@ -67,10 +74,12 @@
       return
     }
 
-    const fontFamily = $(this).val()
-    const success = await ZaDarkUtils.updateFontFamily(fontFamily)
-
-    if (!success) {
+    try {
+      const fontFamily = $(this).val()
+      const success = await ZaDarkUtils.updateFontFamily(fontFamily)
+      if (!success) $(this).val('')
+    } catch (error) {
+      logAsyncError('Font update failed', error)
       $(this).val('')
     }
   }
@@ -104,6 +113,7 @@
         : { disableRulesetIds: [ruleId] }
 
       ZaDarkBrowser.sendMessage({ action: MSG_ACTIONS.UPDATE_ENABLED_BLOCKING_RULE_IDS, payload })
+        .catch((error) => logAsyncError('Blocking rule update failed', error))
       ZaDarkUtils.showToast(ZaDarkUtils.HOTKEYS_TOAST_MESSAGE[ruleId][isEnabled])
     }
   }
@@ -521,21 +531,21 @@
         // Increase font size
         case 'command+0':
         case 'ctrl+0': {
-          handleNextFontSize(1)
+          handleNextFontSize(1).catch((error) => logAsyncError('Font size shortcut failed', error))
           return
         }
 
         // Decrease font size
         case 'command+9':
         case 'ctrl+9': {
-          handleNextFontSize(-1)
+          handleNextFontSize(-1).catch((error) => logAsyncError('Font size shortcut failed', error))
           return
         }
 
         // Next theme
         case 'command+d':
         case 'ctrl+d': {
-          handleNextTheme()
+          handleNextTheme().catch((error) => logAsyncError('Theme shortcut failed', error))
         }
       }
     })
@@ -579,6 +589,7 @@
     setSwitch(switchHideThreadChatMessageElName, enabledHideThreadChatMessage)
 
     loadBlocking(ZaDarkUtils.isSupportDeclarativeNetRequest())
+      .catch((error) => logAsyncError('Blocking rule load failed', error))
   }
 
   const loadHotkeysState = async () => {
@@ -599,6 +610,7 @@
   const updateKnownVersionState = (buttonEl) => {
     const zadarkVersion = ZaDarkBrowser.getManifest().version
     ZaDarkBrowser.saveExtensionSettings({ knownVersion: zadarkVersion })
+      .catch((error) => logAsyncError('Known version update failed', error))
 
     buttonEl.classList.remove('zadark-known-version')
   }
@@ -791,16 +803,17 @@
       }
 
       ZaDarkShared.convertImageToBase64(file)
-        .then((imageBase64) => {
-          ZaDarkUtils.updateThreadChatBg(imageBase64)
+        .then((imageBase64) => ZaDarkUtils.updateThreadChatBg(imageBase64))
+        .then(() => {
           $(this).addClass('zadark-input-file--loaded')
         }).catch((error) => {
-          ZaDarkUtils.showToast(`Lỗi khi tải ảnh: ${error.message}`)
+          ZaDarkUtils.showToast(`Lỗi khi tải ảnh: ${normalizeError(error, 'Không thể tải ảnh.').message}`)
         })
     })
 
     $(buttonDelThreadChatBgElName).on('click', function () {
       ZaDarkUtils.updateThreadChatBg('')
+        .catch((error) => logAsyncError('Conversation background removal failed', error))
       $(inputThreadChatBgElName).removeClass('zadark-input-file--loaded')
     })
 
@@ -844,11 +857,11 @@
       )
     })
 
-    loadPopupState()
-    loadHotkeysState()
-    loadKnownVersionState(buttonEl)
+    loadPopupState().catch((error) => logAsyncError('Popup state load failed', error))
+    loadHotkeysState().catch((error) => logAsyncError('Hotkey state load failed', error))
+    loadKnownVersionState(buttonEl).catch((error) => logAsyncError('Known version load failed', error))
     loadPopupScrollEvent()
-    loadTranslate()
+    loadTranslate().catch((error) => logAsyncError('Translation state load failed', error))
     ZaDarkUtils.initTippy()
 
     $('[data-zdk-intro]').on('click', function (e) {
@@ -880,8 +893,8 @@
     })
 
     document.addEventListener('@ZaDark:CONV_ID_CHANGE', function () {
-      console.log('Current conversation:', ZaDarkUtils.getCurrentConvId())
-      loadThreadChatBg()
+      console.debug('[ZaDark] Conversation changed')
+      loadThreadChatBg().catch((error) => logAsyncError('Conversation background load failed', error))
     })
   }
 
@@ -900,12 +913,12 @@
 
   const updateTheme = (theme = 'dark') => {
     setRadioInputTheme(theme)
-    ZaDarkUtils.updateTheme(theme)
+    ZaDarkUtils.updateTheme(theme).catch((error) => logAsyncError('Theme update failed', error))
   }
 
   const updateFontSize = (fontSize = '16') => {
     setSelect(selectFontSizeElName, fontSize)
-    ZaDarkUtils.updateFontSize(fontSize)
+    ZaDarkUtils.updateFontSize(fontSize).catch((error) => logAsyncError('Font size update failed', error))
   }
 
   const updateTranslateTarget = (translateTarget = 'none') => {
@@ -920,33 +933,35 @@
 
   const hideLatestMessage = (isEnabled) => {
     setSwitch(switchHideLatestMessageElName, isEnabled)
-    ZaDarkUtils.updateHideLatestMessage(isEnabled)
+    ZaDarkUtils.updateHideLatestMessage(isEnabled).catch((error) => logAsyncError('Latest message setting update failed', error))
   }
 
   const hideConvAvatar = (isEnabled) => {
     setSwitch(switchHideConvAvatarElName, isEnabled)
-    ZaDarkUtils.updateHideConvAvatar(isEnabled)
+    ZaDarkUtils.updateHideConvAvatar(isEnabled).catch((error) => logAsyncError('Conversation avatar setting update failed', error))
   }
 
   const hideConvName = (isEnabled) => {
     setSwitch(switchHideConvNameElName, isEnabled)
-    ZaDarkUtils.updateHideConvName(isEnabled)
+    ZaDarkUtils.updateHideConvName(isEnabled).catch((error) => logAsyncError('Conversation name setting update failed', error))
   }
 
   const hideThreadChatMessage = (isEnabled) => {
     setSwitch(switchHideThreadChatMessageElName, isEnabled)
-    ZaDarkUtils.updateHideThreadChatMessage(isEnabled)
+    ZaDarkUtils.updateHideThreadChatMessage(isEnabled).catch((error) => logAsyncError('Thread message setting update failed', error))
   }
 
   const useHotkeys = (isEnabled) => {
     setSwitch(switchUseHotkeysElName, isEnabled)
     loadHotkeys(isEnabled)
-    ZaDarkUtils.updateUseHotkeys(isEnabled)
+    ZaDarkUtils.updateUseHotkeys(isEnabled).catch((error) => logAsyncError('Hotkey setting update failed', error))
   }
 
   const MSG_ACTIONS = ZaDarkUtils.MSG_ACTIONS
 
   ZaDarkBrowser.addMessageListener((message, sender, sendResponse) => {
+    if (!message || message.action === '@ZaDark:Sticker:SendInTab') return
+
     if (message.action === MSG_ACTIONS.CHANGE_THEME) {
       const { theme } = message.payload
       updateTheme(theme)

@@ -14,6 +14,12 @@ const MSG_ACTIONS = {
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
 const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
 const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
+const normalizeError = (error, fallback) => {
+  if (error instanceof Error) return error
+  if (typeof error === 'string' && error) return new Error(error)
+  if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+  return new Error(fallback)
+}
 
 const validateSendPayload = (payload) => {
   if (!payload || typeof payload !== 'object') return 'The popup supplied malformed sticker details.'
@@ -61,7 +67,7 @@ const handleLoadRulesets = async () => {
     }
   })
 
-  chrome.declarativeNetRequest.updateEnabledRulesets({
+  await chrome.declarativeNetRequest.updateEnabledRulesets({
     enableRulesetIds,
     disableRulesetIds
   })
@@ -71,13 +77,13 @@ chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     chrome.tabs.create({ url: 'https://zadark.com/web/chrome' })
     chrome.runtime.setUninstallURL(UNINSTALL_URL)
-    handleLoadRulesets()
+    handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }
 
   if (details.reason === 'update') {
     chrome.runtime.setUninstallURL(UNINSTALL_URL)
     chrome.storage.local.remove(['threadChatBg'])
-    handleLoadRulesets()
+    handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }
 })
 
@@ -88,19 +94,30 @@ chrome.runtime.onMessage.addListener(
     if (action === MSG_ACTIONS.SEND_STICKER_IN_CURRENT_TAB) {
       const invalid = validateSendPayload(payload)
       if (invalid) {
+        console.error('[ZaDarkSticker] background error:', invalid)
         sendResponse({ ok: false, message: invalid })
         return true
       }
       chrome.tabs.query({ active: true, currentWindow: true, url: 'https://chat.zalo.me/*' }, (tabs) => {
-        if (chrome.runtime.lastError || tabs.length !== 1 || typeof tabs[0].id !== 'number') {
-          sendResponse({ ok: false, message: 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.' })
+        const queryError = chrome.runtime.lastError
+        const tabCount = Array.isArray(tabs) ? tabs.length : 0
+        console.debug('[ZaDarkSticker] background active tabs', { action, mode: payload.mode, tabCount })
+        if (queryError || tabCount !== 1 || typeof tabs[0].id !== 'number') {
+          const message = queryError
+            ? normalizeError(queryError.message, 'Could not query the active Zalo chat tab.').message
+            : 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.'
+          console.error('[ZaDarkSticker] background error:', message)
+          sendResponse({ ok: false, message })
           return
         }
         chrome.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:SendInTab', payload }, (result) => {
           const error = chrome.runtime.lastError
-          sendResponse(error
+          const normalized = error
             ? { ok: false, message: 'Could not contact the active Zalo chat tab. Reload it and try again.' }
-            : normalizeSendResult(result))
+            : normalizeSendResult(result)
+          console.debug('[ZaDarkSticker] background result', { action, mode: payload.mode, ok: normalized.ok })
+          if (!normalized.ok) console.error('[ZaDarkSticker] background error:', normalized.message)
+          sendResponse(normalized)
         })
       })
       return true
@@ -127,6 +144,9 @@ chrome.runtime.onMessage.addListener(
     if (action === MSG_ACTIONS.GET_ENABLED_BLOCKING_RULE_IDS) {
       chrome.declarativeNetRequest.getEnabledRulesets().then((rulesetIds) => {
         sendResponse(rulesetIds)
+      }).catch((error) => {
+        console.error('[ZaDark] Blocking rule load failed:', normalizeError(error, 'Unknown blocking rule load failure.').message)
+        sendResponse([])
       })
     }
 
@@ -145,11 +165,12 @@ chrome.runtime.onMessage.addListener(
         if (key) settings[key] = false
       })
 
-      chrome.storage.sync.set(settings)
-
-      chrome.declarativeNetRequest.updateEnabledRulesets({
+      Promise.all([chrome.storage.sync.set(settings), chrome.declarativeNetRequest.updateEnabledRulesets({
         enableRulesetIds,
         disableRulesetIds
+      })]).then(() => sendResponse(true)).catch((error) => {
+        console.error('[ZaDark] Blocking rule update failed:', normalizeError(error, 'Unknown blocking rule update failure.').message)
+        sendResponse(false)
       })
     }
 

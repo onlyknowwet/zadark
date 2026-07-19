@@ -6,6 +6,12 @@
   const TIMEOUT = 30000
 
   const resultError = (message) => ({ ok: false, message })
+  const normalizeError = (error, fallback = 'Unexpected sticker failure.') => {
+    if (error instanceof Error) return error
+    if (typeof error === 'string' && error) return new Error(error)
+    if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+    return new Error(fallback)
+  }
 
   const requestMain = (payload) => new Promise((resolve) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
@@ -38,16 +44,16 @@
     try {
       if (typeof browser !== 'undefined') {
         browser.runtime.sendMessage(message).then(done, (error) => {
-          done(resultError((error && error.message) || 'Could not contact the extension service worker.'))
+          done(resultError(normalizeError(error, 'Could not contact the extension service worker.').message))
         })
       } else {
         chrome.runtime.sendMessage(message, (result) => {
           const error = chrome.runtime.lastError
-          done(error ? resultError(error.message) : result)
+          done(error ? resultError(normalizeError(error, 'Could not contact the extension service worker.').message) : result)
         })
       }
     } catch (error) {
-      done(resultError(error.message))
+      done(resultError(normalizeError(error).message))
     }
   })
 
@@ -68,7 +74,7 @@
         const dataUrl = await readFile(file)
         const result = await runtimeMessage({ action: UPLOAD_ACTION, payload: { dataUrl, fileName: file.name } })
         return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
-      } catch (error) { return resultError(error.message || String(error)) }
+      } catch (error) { return resultError(normalizeError(error, 'Sticker upload failed.').message) }
     },
     send: async (input) => {
       try {
@@ -78,15 +84,31 @@
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
         return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, mode: input.mode, width: 512, height: 512 })
-      } catch (error) { return resultError(error.message || String(error)) }
+      } catch (error) { return resultError(normalizeError(error, 'Sticker send failed.').message) }
     }
   }
 
   const handleSendInTab = (request) => {
     if (!request || request.action !== '@ZaDark:Sticker:SendInTab') return null
     const payload = request.payload
-    if (!payload || typeof payload !== 'object') return Promise.resolve(resultError('The popup supplied malformed sticker details.'))
-    return global.ZaDarkSticker.send(payload)
+    const mode = payload && typeof payload === 'object' ? payload.mode : undefined
+    console.debug('[ZaDarkSticker] chat listener received', { action: request.action, mode })
+    if (!payload || typeof payload !== 'object') {
+      console.error('[ZaDarkSticker] chat listener error: The popup supplied malformed sticker details.')
+      return Promise.resolve(resultError('The popup supplied malformed sticker details.'))
+    }
+    return Promise.resolve().then(() => global.ZaDarkSticker.send(payload)).then((result) => {
+      const normalized = result && typeof result.ok === 'boolean' && typeof result.message === 'string'
+        ? result
+        : resultError('The chat sticker sender returned a malformed result.')
+      console.debug('[ZaDarkSticker] chat listener result', { action: request.action, mode: payload.mode, ok: normalized.ok })
+      if (!normalized.ok) console.error('[ZaDarkSticker] chat listener error:', normalized.message)
+      return normalized
+    }, (error) => {
+      const normalized = resultError(normalizeError(error, 'Chat sticker listener failed.').message)
+      console.error('[ZaDarkSticker] chat listener error:', normalized.message)
+      return normalized
+    })
   }
 
   if (typeof browser !== 'undefined') {

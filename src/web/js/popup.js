@@ -7,9 +7,18 @@
 ZaDarkBrowser.initClassNames()
 ZaDarkUtils.initOSName()
 ZaDarkUtils.initTippy()
-ZaDarkUtils.installFontFamily(['Open Sans:400;500;600'])
 
 const MSG_ACTIONS = ZaDarkUtils.MSG_ACTIONS
+const normalizeError = (error, fallback) => {
+  if (error instanceof Error) return error
+  if (typeof error === 'string' && error) return new Error(error)
+  if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+  return new Error(fallback)
+}
+const logAsyncError = (context, error) => console.error(`[ZaDark] ${context}:`, normalizeError(error, 'Unexpected extension failure.').message)
+
+ZaDarkUtils.installFontFamily(['Open Sans:400;500;600'])
+  .catch((error) => logAsyncError('Popup font initialization failed', error))
 
 const ratingElName = '#js-ext-rating'
 const btnScrollElName = '#js-btn-scroll'
@@ -84,7 +93,7 @@ ZaDarkBrowser.getExtensionSettings().then(async ({
   $(switchHideThreadChatMessageElName).prop('checked', enabledHideThreadChatMessage)
 
   $(switchUseHotkeysElName).prop('checked', useHotkeys)
-})
+}).catch((error) => logAsyncError('Popup initialization failed', error))
 
 $(radioInputThemeElName).on('change', function () {
   const theme = $(this).val()
@@ -103,12 +112,17 @@ $(inputFontFamilyElName).keypress(async function (event) {
     return
   }
 
-  const fontFamily = $(this).val()
-  const success = await ZaDarkUtils.updateFontFamily(fontFamily)
+  try {
+    const fontFamily = $(this).val()
+    const success = await ZaDarkUtils.updateFontFamily(fontFamily)
 
-  if (success) {
-    ZaDarkBrowser.sendMessage2ZaloTabs(MSG_ACTIONS.REFRESH_ZALO_TABS)
-  } else {
+    if (success) {
+      ZaDarkBrowser.sendMessage2ZaloTabs(MSG_ACTIONS.REFRESH_ZALO_TABS)
+    } else {
+      $(this).val('')
+    }
+  } catch (error) {
+    logAsyncError('Font update failed', error)
     $(this).val('')
   }
 })
@@ -204,7 +218,9 @@ const uploadStickerFile = async (file) => {
     $(stickerUrlInputElName).val(result.photoUrl)
     setStickerStatus('Đã tải ảnh. Kiểm tra URL rồi nhấn “Gửi sticker”.', 'success')
   } catch (error) {
-    setStickerStatus(error.message || 'Không thể tải ảnh lên.', 'error')
+    const normalized = normalizeError(error, 'Không thể tải ảnh lên.')
+    console.error('[ZaDarkSticker] popup upload error:', normalized.message)
+    setStickerStatus(normalized.message, 'error')
   } finally {
     setStickerBusy(false)
   }
@@ -233,17 +249,24 @@ const sendSticker = async () => {
   setStickerBusy(true)
   setStickerStatus('Đang gửi sticker…', 'loading')
   try {
+    console.debug('[ZaDarkSticker] popup request', { action: '@ZaDark:Sticker:SendInCurrentTab', mode })
     const result = await ZaDarkBrowser.sendMessage({
       action: '@ZaDark:Sticker:SendInCurrentTab',
       payload: { stickerUrl, mode }
     })
+    const ok = !!(result && result.ok)
+    console.debug('[ZaDarkSticker] popup result', { action: '@ZaDark:Sticker:SendInCurrentTab', mode, ok })
     if (!result || !result.ok) {
-      setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
+      const message = result && typeof result.message === 'string' ? result.message : 'Không thể gửi sticker.'
+      console.error('[ZaDarkSticker] popup error:', message)
+      setStickerStatus(message, 'error')
       return
     }
     setStickerStatus('Đã gửi sticker.', 'success')
   } catch (error) {
-    setStickerStatus(error.message || 'Không thể gửi sticker.', 'error')
+    const normalized = normalizeError(error, 'Không thể gửi sticker.')
+    console.error('[ZaDarkSticker] popup error:', normalized.message)
+    setStickerStatus(normalized.message, 'error')
   } finally {
     setStickerBusy(false)
   }
@@ -301,6 +324,7 @@ const handleBlockingRuleChange = (elName, ruleId) => {
       : { disableRulesetIds: [ruleId] }
 
     ZaDarkBrowser.sendMessage({ action: MSG_ACTIONS.UPDATE_ENABLED_BLOCKING_RULE_IDS, payload })
+      .catch((error) => logAsyncError('Blocking rule update failed', error))
   }
 }
 
@@ -325,7 +349,7 @@ const loadBlocking = () => {
     $(switchBlockTypingElName).prop('checked', ruleIds.includes('rules_block_typing'))
     $(switchBlockSeenElName).prop('checked', ruleIds.includes('rules_block_seen'))
     $(switchBlockDeliveredElName).prop('checked', ruleIds.includes('rules_block_delivered'))
-  })
+  }).catch((error) => logAsyncError('Blocking rule load failed', error))
 
   $(switchBlockTypingElName).on('change', handleBlockingRuleChange(switchBlockTypingElName, 'rules_block_typing'))
   $(switchBlockSeenElName).on('change', handleBlockingRuleChange(switchBlockSeenElName, 'rules_block_seen'))

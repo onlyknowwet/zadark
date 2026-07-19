@@ -14,6 +14,12 @@ const MSG_ACTIONS = {
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
 const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
 const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
+const normalizeError = (error, fallback) => {
+  if (error instanceof Error) return error
+  if (typeof error === 'string' && error) return new Error(error)
+  if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+  return new Error(fallback)
+}
 
 const validateSendPayload = (payload) => {
   if (!payload || typeof payload !== 'object') return 'The popup supplied malformed sticker details.'
@@ -61,7 +67,7 @@ const handleLoadRulesets = async () => {
     }
   })
 
-  browser.declarativeNetRequest.updateEnabledRulesets({
+  await browser.declarativeNetRequest.updateEnabledRulesets({
     enableRulesetIds,
     disableRulesetIds
   })
@@ -70,13 +76,13 @@ const handleLoadRulesets = async () => {
 browser.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     browser.runtime.setUninstallURL(UNINSTALL_URL)
-    handleLoadRulesets()
+    handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }
 
   if (details.reason === 'update') {
     browser.runtime.setUninstallURL(UNINSTALL_URL)
     browser.storage.local.remove(['threadChatBg'])
-    handleLoadRulesets()
+    handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }
 })
 
@@ -86,11 +92,24 @@ browser.runtime.onMessage.addListener(
 
     if (action === MSG_ACTIONS.SEND_STICKER_IN_CURRENT_TAB) {
       const invalid = validateSendPayload(payload)
-      if (invalid) return Promise.resolve({ ok: false, message: invalid })
+      if (invalid) {
+        console.error('[ZaDarkSticker] background error:', invalid)
+        return Promise.resolve({ ok: false, message: invalid })
+      }
       return browser.tabs.query({ active: true, currentWindow: true, url: 'https://chat.zalo.me/*' }).then((tabs) => {
-        if (tabs.length !== 1 || typeof tabs[0].id !== 'number') return { ok: false, message: 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.' }
+        const tabCount = tabs.length
+        console.debug('[ZaDarkSticker] background active tabs', { action, mode: payload.mode, tabCount })
+        if (tabCount !== 1 || typeof tabs[0].id !== 'number') return { ok: false, message: 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.' }
         return browser.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:SendInTab', payload }).then(normalizeSendResult)
-      }).catch(() => ({ ok: false, message: 'Could not contact the active Zalo chat tab. Reload it and try again.' }))
+      }).then((result) => {
+        console.debug('[ZaDarkSticker] background result', { action, mode: payload.mode, ok: result.ok })
+        if (!result.ok) console.error('[ZaDarkSticker] background error:', result.message)
+        return result
+      }).catch((error) => {
+        const normalized = normalizeError(error, 'Could not contact the active Zalo chat tab. Reload it and try again.')
+        console.error('[ZaDarkSticker] background error:', normalized.message)
+        return { ok: false, message: normalized.message }
+      })
     }
 
     if (action === MSG_ACTIONS.UPLOAD_STICKER) {
@@ -99,11 +118,12 @@ browser.runtime.onMessage.addListener(
         return browser.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:UploadInTab', payload }).then((result) => (
           result && typeof result.ok === 'boolean' ? result : malformedUploadResult
         ))
-      }).catch(() => ({ ok: false, message: 'Could not contact zmenu. Reload the open zmenu tab and try again.' }))
+      }).catch((error) => ({ ok: false, message: normalizeError(error, 'Could not contact zmenu. Reload the open zmenu tab and try again.').message }))
     }
 
     if (action === MSG_ACTIONS.GET_ENABLED_BLOCKING_RULE_IDS) {
       return browser.declarativeNetRequest.getEnabledRulesets()
+        .catch((error) => { throw normalizeError(error, 'Could not load blocking rules.') })
     }
 
     if (action === MSG_ACTIONS.UPDATE_ENABLED_BLOCKING_RULE_IDS) {
@@ -121,14 +141,10 @@ browser.runtime.onMessage.addListener(
         if (key) settings[key] = false
       })
 
-      browser.storage.sync.set(settings)
-
-      browser.declarativeNetRequest.updateEnabledRulesets({
+      return Promise.all([browser.storage.sync.set(settings), browser.declarativeNetRequest.updateEnabledRulesets({
         enableRulesetIds,
         disableRulesetIds
-      })
-
-      return Promise.resolve(true)
+      })]).then(() => true).catch((error) => { throw normalizeError(error, 'Could not update blocking rules.') })
     }
 
     return false

@@ -7,6 +7,13 @@
 */
 
 (function (global) {
+  const normalizeError = (error, fallback) => {
+    if (error instanceof Error) return error
+    if (typeof error === 'string' && error) return new Error(error)
+    if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
+    return new Error(fallback)
+  }
+
   const ZaDarkBrowser = {
     name: 'Safari',
     changelogURL: 'https://apps.apple.com/us/app/zadark-zalo-dark-mode/1615941471',
@@ -86,7 +93,8 @@
     },
 
     sendMessage: (params) => {
-      return browser.runtime.sendMessage(params)
+      return Promise.resolve().then(() => browser.runtime.sendMessage(params))
+        .catch((error) => { throw normalizeError(error, 'Extension messaging failed.') })
     },
 
     sendMessage2Tab: async function (tabId, action, payload) {
@@ -94,17 +102,22 @@
         return
       }
 
-      await browser.tabs.sendMessage(tabId, {
+      await Promise.resolve().then(() => browser.tabs.sendMessage(tabId, {
         action,
         payload
-      })
+      })).catch((error) => { throw normalizeError(error, 'Could not message a Zalo tab.') })
     },
 
     sendMessage2ZaloTabs: async function (action, payload) {
-      const tabs = await this.getZaloTabs()
-      tabs.forEach((tab) => {
-        this.sendMessage2Tab(tab.id, action, payload)
-      })
+      try {
+        const tabs = await this.getZaloTabs()
+        const results = await Promise.allSettled(tabs.map((tab) => this.sendMessage2Tab(tab.id, action, payload)))
+        results.forEach((result) => {
+          if (result.status === 'rejected') console.error('[ZaDark] Zalo tab broadcast failed:', normalizeError(result.reason, 'Unknown tab messaging failure.').message)
+        })
+      } catch (error) {
+        console.error('[ZaDark] Zalo tab lookup failed:', normalizeError(error, 'Unknown tab lookup failure.').message)
+      }
     },
 
     addMessageListener: (callback) => {

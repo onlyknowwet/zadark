@@ -46,7 +46,7 @@ const stickerUrlInputElName = '#js-sticker-url'
 const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
-const stickerUploadProtocol = 'source-url-v2'
+const stickerUploadProtocol = 'binary-upload-v3'
 let stickerBusy = false
 let trustedStickerUrl = null
 

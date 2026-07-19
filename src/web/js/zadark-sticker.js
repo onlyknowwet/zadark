@@ -3,7 +3,7 @@
   const REQUEST_EVENT = '@ZaDark:Sticker:Send'
   const RESPONSE_EVENT = '@ZaDark:Sticker:SendResult'
   const UPLOAD_ACTION = '@ZaDark:Sticker:Upload'
-  const UPLOAD_PROTOCOL = 'source-url-v2'
+  const UPLOAD_PROTOCOL = 'binary-upload-v3'
   const TIMEOUT = 30000
   let currentConversationId = null
 

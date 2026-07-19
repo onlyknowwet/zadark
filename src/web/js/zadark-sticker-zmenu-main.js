@@ -1,6 +1,6 @@
 /* zmenu.zalo.me MAIN-world upload bridge. */
 (function () {
-  const UPLOAD_PROTOCOL = 'source-url-v2'
+  const UPLOAD_PROTOCOL = 'binary-upload-v3'
   const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
   const MAX_STICKER_DIMENSION = 512
   const MIME_EXTENSIONS = {
@@ -130,7 +130,7 @@
     }
   }
 
-  document.addEventListener('@ZaDark:Sticker:UploadRequest', async (event) => {
+  document.addEventListener('@ZaDark:Sticker:UploadRequest:v3', async (event) => {
     let request
     try { request = JSON.parse(event.detail) } catch (_) {
       console.error('[ZaDarkSticker] zmenu MAIN received malformed upload JSON')
@@ -210,6 +210,6 @@
       result = { ok: true, photoUrl, message: 'Uploaded.', uploadResponse }
     } catch (error) { result = { ok: false, message: error.message || String(error), uploadResponse } }
     console.debug('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message, photoUrl: result.photoUrl, uploadResponse: result.uploadResponse })
-    document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadResult', { detail: JSON.stringify({ id: request.id, result }) }))
+    document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadResult:v3', { detail: JSON.stringify({ id: request.id, result }) }))
   })
 })()

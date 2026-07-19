@@ -79,6 +79,11 @@
   }
 
   document.addEventListener('@ZaDark:CONV_ID_CHANGE', syncCurrentConversation)
+  const conversationObserver = new MutationObserver(syncCurrentConversation)
+  conversationObserver.observe(document.body, {
+    attributes: true,
+    attributeFilter: ['data-current-conv-id']
+  })
   syncCurrentConversation()
 
   global.ZaDarkSticker = {
@@ -92,7 +97,7 @@
     send: async (input) => {
       try {
         if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
-        const receiverId = currentConversationId || syncCurrentConversation()
+        const receiverId = syncCurrentConversation() || currentConversationId
         if (!receiverId || !receiverId.trim()) throw new Error('Select a Zalo conversation before sending a sticker.')
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')

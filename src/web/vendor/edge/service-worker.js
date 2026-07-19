@@ -43,8 +43,6 @@ const SETTINGS_RULE_KEYS = {
   rules_block_seen: 'enabledBlockSeen'
 }
 
-const UNINSTALL_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdLonVbx-IavimDRneKuUhtMox4vDbyu35tB6uzQG8FGJFbUg/viewform?usp=pp_url&entry.454875478=Edge'
-
 const handleLoadRulesets = async () => {
   const settings = await chrome.storage.sync.get({
     enabledBlockTyping: false,
@@ -76,12 +74,10 @@ const handleLoadRulesets = async () => {
 chrome.runtime.onInstalled.addListener((details) => {
   if (details.reason === 'install') {
     chrome.tabs.create({ url: 'https://zadark.com/web/edge' })
-    chrome.runtime.setUninstallURL(UNINSTALL_URL)
     handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }
 
   if (details.reason === 'update') {
-    chrome.runtime.setUninstallURL(UNINSTALL_URL)
     chrome.storage.local.remove(['threadChatBg'])
     handleLoadRulesets().catch((error) => console.error('[ZaDark] Blocking rules initialization failed:', normalizeError(error, 'Unknown rules initialization failure.').message))
   }

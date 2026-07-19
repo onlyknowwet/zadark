@@ -117,39 +117,6 @@
       throw error
     }
   }
-  const resolveGroupReceiverId = async (receiverId, cipher) => {
-    const payload = { globalUids: JSON.stringify([receiverId]) }
-    console.log('[ZaDarkSticker] Zalo request (decrypted)', { step: 'group-id-resolution', body: payload })
-    const params = await cipher.encrypt(payload)
-    const url = new URL('https://tt-profile-wpa.chat.zalo.me/api/gid/decrypt')
-    url.search = new URLSearchParams({ zpw_ver: '669', zpw_type: '30', params })
-    const encrypted = await getJson('group-id-resolution', url.href)
-    if (!encrypted.data) throw new Error('Group decrypt API returned no encrypted data.')
-    const group = JSON.parse(await cipher.decrypt(encrypted.data))
-    console.log('[ZaDarkSticker] Zalo response (decrypted)', { step: 'group-id-resolution', body: group })
-    const resolvedId = group.data && group.data.data && group.data.data[receiverId]
-    if (!resolvedId) throw new Error('Group mapping was not returned.')
-    return resolvedId
-  }
-  const resolveGroupReceiverIdWithFallback = async (receiverId, cipher) => {
-    let timer
-    try {
-      const resolvedId = await Promise.race([
-        resolveGroupReceiverId(receiverId, cipher),
-        new Promise((resolve) => { timer = setTimeout(() => resolve(null), 5000) })
-      ])
-      if (!resolvedId) throw new Error('Group mapping timed out.')
-      return resolvedId
-    } catch (error) {
-      console.warn('[ZaDarkSticker] group receiver resolution failed; using original conversation ID', {
-        variant: 'group',
-        message: error && error.message ? error.message : String(error)
-      })
-      return receiverId
-    } finally {
-      clearTimeout(timer)
-    }
-  }
   const send = async (input) => {
     try {
       if (!input || typeof input !== 'object') throw new Error('Sticker details are required.')
@@ -188,10 +155,9 @@
       }
       const directPayload = { ...basePayload, clientId, toId: receiverId, ttl: 0 }
       const directAttempt = postVariant({ variant: 'direct', endpoint: directEndpoint, payload: directPayload, cipher })
-      const groupAttempt = resolveGroupReceiverIdWithFallback(receiverId, cipher).then((groupReceiverId) => {
-        const groupPayload = { ...basePayload, clientId: clientId - 1, grid: groupReceiverId, ttl: 0, visibility: 0 }
-        return postVariant({ variant: 'group', endpoint: groupEndpoint, payload: groupPayload, cipher })
-      })
+      const groupReceiverId = receiverId.startsWith('g') ? receiverId.slice(1) : receiverId
+      const groupPayload = { ...basePayload, clientId: clientId - 1, grid: groupReceiverId, ttl: 0, visibility: 0 }
+      const groupAttempt = postVariant({ variant: 'group', endpoint: groupEndpoint, payload: groupPayload, cipher })
       const attempts = await Promise.allSettled([
         directAttempt,
         groupAttempt

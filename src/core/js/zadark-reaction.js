@@ -775,9 +775,11 @@
           iconInputEl.className = 'zadark-reaction__icon-input-control'
           iconInputEl.placeholder = 'Để trống dùng icon hiện tại'
           iconInputEl.setAttribute('aria-label', 'rIcon tùy chọn')
-          iconInputEl.addEventListener('click', (e) => e.stopPropagation())
-          iconInputEl.addEventListener('pointerdown', (e) => e.stopPropagation())
-          iconInputEl.addEventListener('keydown', (e) => e.stopPropagation())
+          const stopControlPropagation = (e) => e.stopPropagation()
+          const iconInputEvents = ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown']
+          iconInputEvents.forEach((eventName) => {
+            iconInputEl.addEventListener(eventName, stopControlPropagation)
+          })
 
           const iconInputLabelEl = document.createElement('label')
           iconInputLabelEl.className = 'zadark-reaction__icon-input'
@@ -800,9 +802,9 @@
           }
           iconInputEl.addEventListener('input', syncHideIconState)
           syncHideIconState()
-          const hideIconEvents = ['click', 'pointerdown', 'keydown']
+          const hideIconEvents = ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown']
           hideIconEvents.forEach((eventName) => {
-            hideIconLabelEl.addEventListener(eventName, (e) => e.stopPropagation())
+            hideIconLabelEl.addEventListener(eventName, stopControlPropagation)
           })
 
           popoverContentEl.appendChild(iconInputLabelEl)

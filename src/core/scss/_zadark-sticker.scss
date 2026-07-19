@@ -28,6 +28,43 @@
   }
 }
 
+.zadark-sticker-toolbar-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+
+  &__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    .zadark-icon--zadark { font-size: 18px; }
+
+    &:hover,
+    &:focus-visible,
+    .selected & {
+      background: var(--zadark-blue-700);
+      color: var(--zadark-blue-base);
+      outline: none;
+    }
+
+    &:focus-visible { outline: 2px solid var(--zadark-blue-400); outline-offset: 1px; }
+  }
+}
+
 .zadark-sticker-dropzone {
   position: relative;
   display: flex;

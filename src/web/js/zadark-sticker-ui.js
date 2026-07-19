@@ -3,11 +3,12 @@
 (function () {
   const STICKER_MAX_FILE_SIZE = 10 * 1024 * 1024
   const STICKER_PANEL_ID = 'js-zadark-sticker-panel'
+  const STICKER_TRIGGER_ID = 'zadark-sticker-toolbar-trigger'
   let stickerBusy = false
   let trustedStickerUrl = null
 
   const stickerPanelHTML = `
-    <section id="js-zadark-sticker-panel" class="zadark-panel zadark-sticker-panel" aria-labelledby="zadark-sticker-title">
+    <section id="js-zadark-sticker-panel" class="zadark-panel zadark-sticker-panel" aria-labelledby="zadark-sticker-title" tabindex="-1">
       <div class="zadark-panel__body">
         <div class="zadark-sticker-panel__heading">
           <div>
@@ -36,6 +37,62 @@
   `
 
   const getElement = (id) => document.getElementById(id)
+
+  const focusStickerPanel = () => {
+    const popupEl = document.getElementById('js-zadark-popup')
+    const panelEl = getElement(STICKER_PANEL_ID)
+    if (!popupEl || !panelEl || !popupEl.hasAttribute('data-visible')) return
+
+    if (typeof panelEl.scrollIntoView === 'function') panelEl.scrollIntoView({ block: 'nearest' })
+    panelEl.focus({ preventScroll: true })
+  }
+
+  const activateStickerTrigger = (triggerEl) => {
+    document.dispatchEvent(new CustomEvent('zadark-sticker-toolbar-activate'))
+    requestAnimationFrame(() => {
+      const popupEl = document.getElementById('js-zadark-popup')
+      const isOpen = !!popupEl && popupEl.hasAttribute('data-visible')
+      triggerEl.classList.toggle('selected', isOpen)
+      const buttonEl = triggerEl.querySelector('button')
+      if (buttonEl) buttonEl.setAttribute('aria-pressed', isOpen ? 'true' : 'false')
+      focusStickerPanel()
+    })
+  }
+
+  const mountStickerToolbarTrigger = () => {
+    const toolbarEl = document.querySelector('#chat-box-bar-id .chat-box-toolbar')
+    if (!toolbarEl) return
+
+    const existingTrigger = document.getElementById(STICKER_TRIGGER_ID)
+    if (existingTrigger && existingTrigger.parentElement === toolbarEl) return
+    if (existingTrigger) existingTrigger.remove()
+
+    const nativeStickerEl = Array.from(toolbarEl.children).find((child) => child.tagName === 'LI')
+    if (!nativeStickerEl) return
+
+    const triggerEl = document.createElement('li')
+    triggerEl.id = STICKER_TRIGGER_ID
+    triggerEl.dataset.zadarkStickerTrigger = 'true'
+    triggerEl.className = 'zadark-sticker-toolbar-trigger'
+    triggerEl.innerHTML = `
+      <button type="button" class="zadark-sticker-toolbar-trigger__button" title="Gửi sticker bằng ZaDark" aria-label="Gửi sticker bằng ZaDark" aria-pressed="false">
+        <i class="zadark-icon zadark-icon--zadark" aria-hidden="true"></i>
+      </button>
+    `
+    const buttonEl = triggerEl.querySelector('button')
+    buttonEl.addEventListener('click', () => activateStickerTrigger(triggerEl))
+    toolbarEl.insertBefore(triggerEl, nativeStickerEl.nextSibling)
+  }
+
+  const isToolbarMutation = (record) => {
+    const targetEl = record.target.nodeType === 1 ? record.target : record.target.parentElement
+    if (targetEl && (targetEl.matches('#chat-box-bar-id .chat-box-toolbar') || targetEl.closest('#chat-box-bar-id .chat-box-toolbar'))) return true
+
+    return Array.from(record.addedNodes).concat(Array.from(record.removedNodes)).some((node) => {
+      if (node.nodeType !== 1) return false
+      return node.matches('#chat-box-bar-id .chat-box-toolbar') || node.querySelector('#chat-box-bar-id .chat-box-toolbar') || node.id === STICKER_TRIGGER_ID
+    })
+  }
 
   const setStickerStatus = (message = '', state = '') => {
     const statusEl = getElement('js-zadark-sticker-status')
@@ -201,4 +258,10 @@
   mountStickerPanel()
   const stickerObserver = new MutationObserver(mountStickerPanel)
   stickerObserver.observe(document.documentElement, { childList: true, subtree: true })
+
+  mountStickerToolbarTrigger()
+  const toolbarObserver = new MutationObserver((records) => {
+    if (records.some(isToolbarMutation)) mountStickerToolbarTrigger()
+  })
+  toolbarObserver.observe(document.documentElement, { childList: true, subtree: true })
 })()

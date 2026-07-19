@@ -682,6 +682,12 @@
       buttonEl.classList.remove('selected')
       popupEl.removeAttribute('data-visible')
     }
+
+    document.querySelectorAll('[data-zadark-sticker-trigger]').forEach((triggerEl) => {
+      triggerEl.classList.toggle('selected', visible)
+      const triggerButtonEl = triggerEl.querySelector('button')
+      if (triggerButtonEl) triggerButtonEl.setAttribute('aria-pressed', visible ? 'true' : 'false')
+    })
   }
 
   const handleOpenZaDarkPopup = (buttonEl, popupEl) => {
@@ -697,7 +703,10 @@
   const handleCloseZaDarkPopup = (buttonEl, popupEl) => {
     return (event) => {
       const isOpen = popupEl.getAttribute('data-visible') !== null
-      const isClickOutside = isOpen && !popupEl.contains(event.target) && !buttonEl.contains(event.target)
+      const triggerEl = event.target && event.target.closest
+        ? event.target.closest('[data-zadark-sticker-trigger]')
+        : null
+      const isClickOutside = isOpen && !popupEl.contains(event.target) && !buttonEl.contains(event.target) && !triggerEl
 
       if (!isClickOutside) {
         return
@@ -847,6 +856,15 @@
     const buttonEl = document.getElementById('div_Main_TabZaDark')
 
     buttonEl.addEventListener('click', handleOpenZaDarkPopup(buttonEl, popupEl))
+
+    document.addEventListener('zadark-sticker-toolbar-activate', () => {
+      const isOpen = popupEl.getAttribute('data-visible') !== null
+      if (isOpen) {
+        setZaDarkPopupVisible(buttonEl, popupEl, false)
+      } else {
+        handleOpenZaDarkPopup(buttonEl, popupEl)()
+      }
+    })
 
     const closeEventNames = ['click', 'contextmenu']
     closeEventNames.forEach((eventName) => {

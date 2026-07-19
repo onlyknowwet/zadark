@@ -196,7 +196,10 @@
         if (!receiverId || !receiverId.trim()) throw new Error('Select a Zalo conversation before sending a sticker.')
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
-        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, width: 512, height: 512 })
+        const thumbUrlInput = String(input.thumbUrl || '').trim()
+        const thumbUrl = thumbUrlInput ? new URL(thumbUrlInput) : url
+        if (thumbUrl.protocol !== 'https:') throw new Error('Sticker thumbnail URL must use HTTPS.')
+        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, thumbUrl: thumbUrl.href, width: 512, height: 512 })
       } catch (error) { return resultError(normalizeError(error, 'Sticker send failed.').message) }
     }
   }

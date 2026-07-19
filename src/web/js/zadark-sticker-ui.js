@@ -35,6 +35,11 @@
           <input id="js-zadark-sticker-url" class="zadark-input" type="url" inputmode="url" placeholder="https://example.com/anh.png" autocomplete="off" />
         </label>
 
+        <label class="zadark-sticker-field" for="js-zadark-sticker-thumb-url">
+          <span>Thumb URL <small>(tùy chọn)</small></span>
+          <input id="js-zadark-sticker-thumb-url" class="zadark-input" type="url" inputmode="url" placeholder="Để trống để dùng URL ảnh" autocomplete="off" />
+        </label>
+
         <p class="zadark-sticker-note">Tải ảnh từ máy cần một tab <a href="https://zmenu.zalo.me" target="_blank" rel="noopener noreferrer">zmenu.zalo.me</a> đang mở và đã đăng nhập.</p>
         <div id="js-zadark-sticker-status" class="zadark-sticker-status" role="status" aria-live="polite"></div>
         <button id="js-zadark-sticker-send" class="zadark-sticker-send" type="button">Gửi sticker</button>
@@ -54,9 +59,9 @@
   const setCompactBusy = (busy) => {
     compactStickerBusy = busy
     if (!compactPopoverEl) return
-    const inputEl = compactPopoverEl.querySelector('input')
+    const inputEls = compactPopoverEl.querySelectorAll('input')
     const buttonEl = compactPopoverEl.querySelector('button')
-    inputEl.disabled = busy
+    inputEls.forEach((inputEl) => { inputEl.disabled = busy })
     buttonEl.disabled = busy
     compactPopoverEl.setAttribute('aria-busy', busy ? 'true' : 'false')
   }
@@ -83,11 +88,18 @@
     const generation = compactGeneration
     const isCurrent = () => compactPopoverEl === popoverEl && compactGeneration === generation
     const inputEl = compactPopoverEl.querySelector('input')
+    const thumbInputEl = compactPopoverEl.querySelector('#zadark-sticker-toolbar-thumb-url')
     const stickerUrl = inputEl.value.trim()
+    const thumbUrl = thumbInputEl.value.trim()
 
     if (!isHttpsImageUrl(stickerUrl)) {
       setCompactStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
       inputEl.focus()
+      return
+    }
+    if (thumbUrl && !isHttpsImageUrl(thumbUrl)) {
+      setCompactStatus('Thumb URL phải bắt đầu bằng https://.', 'error')
+      thumbInputEl.focus()
       return
     }
     if (!ZaDarkUtils.getCurrentConvId()) {
@@ -112,7 +124,7 @@
         inputEl.value = sendUrl
       }
       setCompactStatus('Đang gửi sticker…', 'loading')
-      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl })
+      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl, thumbUrl })
       if (!isCurrent()) return
       if (!result || !result.ok) {
         setCompactStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
@@ -120,6 +132,7 @@
       }
       setCompactStatus('Đã gửi sticker.', 'success')
       inputEl.value = ''
+      thumbInputEl.value = ''
       setTimeout(() => {
         if (isCurrent()) closeCompactPopover(false)
       }, 500)
@@ -172,6 +185,10 @@
           <span>URL ảnh</span>
           <input id="zadark-sticker-toolbar-url" type="url" inputmode="url" placeholder="https://..." autocomplete="off">
         </label>
+        <label class="zadark-sticker-toolbar-popover__field zadark-sticker-toolbar-popover__field--thumb" for="zadark-sticker-toolbar-thumb-url">
+          <span>Thumb URL <small>(tùy chọn)</small></span>
+          <input id="zadark-sticker-toolbar-thumb-url" type="url" inputmode="url" placeholder="Để trống = URL ảnh" autocomplete="off">
+        </label>
         <button type="button" class="zadark-sticker-toolbar-popover__send">Gửi</button>
         <div class="zadark-sticker-toolbar-popover__status" role="status" aria-live="polite"></div>
       </div>
@@ -183,10 +200,21 @@
     triggerEl.classList.add('selected')
     triggerButtonEl.setAttribute('aria-expanded', 'true')
     const inputEl = compactPopoverEl.querySelector('input')
+    const thumbInputEl = compactPopoverEl.querySelector('#zadark-sticker-toolbar-thumb-url')
     inputEl.addEventListener('input', () => {
       if (inputEl.value.trim() !== compactTrustedStickerUrl) compactTrustedStickerUrl = null
     })
     inputEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        sendCompactSticker()
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeCompactPopover(true)
+      }
+    })
+    thumbInputEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault()
         sendCompactSticker()
@@ -293,6 +321,7 @@
     stickerBusy = busy
     getElement('js-zadark-sticker-send').disabled = busy
     getElement('js-zadark-sticker-url').disabled = busy
+    getElement('js-zadark-sticker-thumb-url').disabled = busy
     getElement('js-zadark-sticker-file').disabled = busy
     const dropzoneEl = getElement('js-zadark-sticker-dropzone')
     dropzoneEl.setAttribute('aria-disabled', busy ? 'true' : 'false')
@@ -344,11 +373,18 @@
   const sendSticker = async () => {
     if (stickerBusy) return
     const urlEl = getElement('js-zadark-sticker-url')
+    const thumbUrlEl = getElement('js-zadark-sticker-thumb-url')
     const stickerUrl = urlEl.value.trim()
+    const thumbUrl = thumbUrlEl.value.trim()
 
     if (!isHttpsImageUrl(stickerUrl)) {
       setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
       urlEl.focus()
+      return
+    }
+    if (thumbUrl && !isHttpsImageUrl(thumbUrl)) {
+      setStickerStatus('Thumb URL phải bắt đầu bằng https://.', 'error')
+      thumbUrlEl.focus()
       return
     }
     if (!ZaDarkUtils.getCurrentConvId()) {
@@ -371,7 +407,7 @@
         urlEl.value = sendUrl
       }
       setStickerStatus('Đang gửi sticker…', 'loading')
-      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl })
+      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl, thumbUrl })
       if (!result || !result.ok) {
         setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
         return
@@ -388,7 +424,8 @@
     const dropzoneEl = getElement('js-zadark-sticker-dropzone')
     const fileInputEl = getElement('js-zadark-sticker-file')
     const urlEl = getElement('js-zadark-sticker-url')
-    if (!dropzoneEl || !fileInputEl || !urlEl) return
+    const thumbUrlEl = getElement('js-zadark-sticker-thumb-url')
+    if (!dropzoneEl || !fileInputEl || !urlEl || !thumbUrlEl) return
 
     fileInputEl.addEventListener('change', () => {
       uploadStickerFile(fileInputEl.files[0])
@@ -407,6 +444,9 @@
     })
     urlEl.addEventListener('input', () => {
       if (urlEl.value.trim() !== trustedStickerUrl) trustedStickerUrl = null
+    })
+    thumbUrlEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') sendSticker()
     })
     const dragEnterEvents = ['dragenter', 'dragover']
     dragEnterEvents.forEach((eventName) => {

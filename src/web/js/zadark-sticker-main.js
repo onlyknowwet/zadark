@@ -127,6 +127,10 @@
       if (stickerUrl.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
       const receiverId = input.receiverId.trim()
       const normalizedStickerUrl = stickerUrl.href
+      const thumbUrlInput = String(input.thumbUrl || '').trim()
+      const thumbUrl = thumbUrlInput ? new URL(thumbUrlInput) : stickerUrl
+      if (thumbUrl.protocol !== 'https:') throw new Error('Sticker thumbnail URL must use HTTPS.')
+      const normalizedThumbUrl = thumbUrl.href
       const width = 512
       const height = 512
       const imei = localStorage.z_uuid
@@ -139,7 +143,7 @@
       const basePayload = {
         title: '',
         oriUrl: normalizedStickerUrl,
-        thumbUrl: normalizedStickerUrl,
+        thumbUrl: normalizedThumbUrl,
         hdUrl: normalizedStickerUrl,
         width,
         height,
@@ -148,7 +152,9 @@
         thumb_height: height,
         thumb_width: width,
         webp: JSON.stringify({ width, height, url: normalizedStickerUrl }),
-        jcp: JSON.stringify({ pStickerType: 1 }),
+        // pStickerType: 1 marks the sticker as AI-generated.
+        // jcp: JSON.stringify({ pStickerType: 1 }),
+        jcp: JSON.stringify({ pStickerType: 0 }),
         zsource: -1
       }
       const isGroup = receiverId.startsWith('g')

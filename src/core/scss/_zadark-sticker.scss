@@ -91,10 +91,17 @@
   &__field {
     min-width: 0;
 
-    span {
+    &--thumb { grid-column: 1 / -1; }
+
+    > span {
       display: block;
       margin-bottom: 3px;
       color: var(--zadark-neutral-500);
+    }
+
+    small {
+      color: var(--zadark-neutral-500);
+      font-size: 10px;
     }
   }
 

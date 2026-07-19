@@ -43,6 +43,7 @@ const stickerPanelElName = '.zadark-sticker-panel'
 const stickerDropzoneElName = '#js-sticker-dropzone'
 const stickerFileInputElName = '#js-sticker-file'
 const stickerUrlInputElName = '#js-sticker-url'
+const stickerThumbUrlInputElName = '#js-sticker-thumb-url'
 const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
@@ -271,9 +272,15 @@ const sendSticker = async () => {
   if (stickerBusy) return
 
   const stickerUrl = $(stickerUrlInputElName).val().trim()
+  const thumbUrl = $(stickerThumbUrlInputElName).val().trim()
   if (!isHttpsUrl(stickerUrl)) {
     setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
     $(stickerUrlInputElName).trigger('focus')
+    return
+  }
+  if (thumbUrl && !isHttpsUrl(thumbUrl)) {
+    setStickerStatus('Thumb URL phải bắt đầu bằng https://.', 'error')
+    $(stickerThumbUrlInputElName).trigger('focus')
     return
   }
 
@@ -301,7 +308,7 @@ const sendSticker = async () => {
     console.debug('[ZaDarkSticker] popup request', { action: '@ZaDark:Sticker:SendInCurrentTab' })
     const result = await ZaDarkBrowser.sendMessage({
       action: '@ZaDark:Sticker:SendInCurrentTab',
-      payload: { stickerUrl: sendUrl }
+      payload: { stickerUrl: sendUrl, thumbUrl }
     })
     const ok = !!(result && result.ok)
     console.debug('[ZaDarkSticker] popup result', { action: '@ZaDark:Sticker:SendInCurrentTab', ok })
@@ -357,6 +364,9 @@ const loadStickerPanel = () => {
     if (!stickerBusy) uploadStickerFile(event.dataTransfer.files[0])
   })
   $(stickerUrlInputElName).on('keydown', (event) => {
+    if (event.key === 'Enter') sendSticker()
+  })
+  $(stickerThumbUrlInputElName).on('keydown', (event) => {
     if (event.key === 'Enter') sendSticker()
   })
   $(stickerUrlInputElName).on('input', () => {

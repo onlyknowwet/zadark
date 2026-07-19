@@ -100,6 +100,29 @@
     }
   }
 
+  .zadark-reaction__hide-icon {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 4px;
+    margin: 1px 6px 3px;
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+
+    input {
+      width: 13px;
+      height: 13px;
+      margin: 0;
+      accent-color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    &:focus-within {
+      color: var(--text-primary);
+    }
+  }
+
   .zadark-reaction__popover-content__list {
     position: relative;
     overflow: auto;

@@ -532,6 +532,93 @@
    */
   const emojiCache = new Map()
 
+  const md5Utf8 = (value) => {
+    const bytes = []
+    for (let i = 0; i < value.length; ++i) {
+      let codePoint = value.charCodeAt(i)
+      if (codePoint >= 0xd800 && codePoint <= 0xdbff) {
+        const next = value.charCodeAt(i + 1)
+        if (next >= 0xdc00 && next <= 0xdfff) {
+          codePoint = 0x10000 + ((codePoint - 0xd800) << 10) + next - 0xdc00
+          ++i
+        } else {
+          codePoint = 0xfffd
+        }
+      } else if (codePoint >= 0xdc00 && codePoint <= 0xdfff) {
+        codePoint = 0xfffd
+      }
+
+      if (codePoint < 0x80) bytes.push(codePoint)
+      else if (codePoint < 0x800) bytes.push(0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f))
+      else if (codePoint < 0x10000) bytes.push(0xe0 | (codePoint >> 12), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f))
+      else bytes.push(0xf0 | (codePoint >> 18), 0x80 | ((codePoint >> 12) & 0x3f), 0x80 | ((codePoint >> 6) & 0x3f), 0x80 | (codePoint & 0x3f))
+    }
+
+    const bitLength = BigInt(bytes.length) * BigInt(8)
+    bytes.push(0x80)
+    while (bytes.length % 64 !== 56) bytes.push(0)
+    for (let i = 0; i < 8; ++i) bytes.push(Number((bitLength >> BigInt(i * 8)) & BigInt(0xff)))
+
+    const shift = [
+      7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22,
+      5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20,
+      4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23,
+      6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21
+    ]
+    const constants = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0)
+    let a0 = 0x67452301
+    let b0 = 0xefcdab89
+    let c0 = 0x98badcfe
+    let d0 = 0x10325476
+
+    for (let offset = 0; offset < bytes.length; offset += 64) {
+      const words = []
+      for (let i = 0; i < 16; ++i) {
+        const index = offset + i * 4
+        words[i] = bytes[index] | (bytes[index + 1] << 8) | (bytes[index + 2] << 16) | (bytes[index + 3] << 24)
+      }
+      let a = a0
+      let b = b0
+      let c = c0
+      let d = d0
+      for (let i = 0; i < 64; ++i) {
+        let f
+        let g
+        if (i < 16) {
+          f = (b & c) | (~b & d)
+          g = i
+        } else if (i < 32) {
+          f = (d & b) | (~d & c)
+          g = (5 * i + 1) % 16
+        } else if (i < 48) {
+          f = b ^ c ^ d
+          g = (3 * i + 5) % 16
+        } else {
+          f = c ^ (b | ~d)
+          g = (7 * i) % 16
+        }
+        const next = d
+        d = c
+        c = b
+        const sum = (a + f + constants[i] + words[g]) >>> 0
+        const rotated = ((sum << shift[i]) | (sum >>> (32 - shift[i]))) >>> 0
+        b = (b + rotated) >>> 0
+        a = next
+      }
+      a0 = (a0 + a) >>> 0
+      b0 = (b0 + b) >>> 0
+      c0 = (c0 + c) >>> 0
+      d0 = (d0 + d) >>> 0
+    }
+
+    return [a0, b0, c0, d0].map((word) => [0, 8, 16, 24].map((bits) => ((word >>> bits) & 0xff).toString(16).padStart(2, '0')).join('')).join('')
+  }
+
+  const hiddenReactionType = (rIcon) => {
+    // Hide mode reduces MD5 modulo 1,000,000 and sends the exact result as a safe Number.
+    return 1000000 + Number(BigInt(`0x${md5Utf8(rIcon)}`) % BigInt(1000000))
+  }
+
   /**
    * Creates a new emoji DOM element, or reuses one from cache if available.
    * Adds necessary styling and click behavior.
@@ -596,10 +683,12 @@
       if (typeof sendReaction === 'function') {
         const reactionEl = el.closest('.zadark-reaction')
         const iconInputEl = reactionEl && reactionEl.querySelector('.zadark-reaction__icon-input input')
+        const hideIconEl = reactionEl && reactionEl.querySelector('.zadark-reaction__hide-icon input')
         const customIcon = iconInputEl ? iconInputEl.value.trim() : ''
+        const effectiveIcon = customIcon || emoji.rIcon
         sendReaction({
-          rType: emoji.rType,
-          rIcon: customIcon || emoji.rIcon
+          rType: hideIconEl && hideIconEl.checked ? hiddenReactionType(effectiveIcon) : emoji.rType,
+          rIcon: effectiveIcon
         })
         addRecentEmoji(emoji)
       }
@@ -695,7 +784,20 @@
           iconInputLabelEl.textContent = 'rIcon (tùy chọn)'
           iconInputLabelEl.appendChild(iconInputEl)
 
+          const hideIconInputEl = document.createElement('input')
+          hideIconInputEl.type = 'checkbox'
+          hideIconInputEl.setAttribute('aria-label', 'Hide icon')
+          const hideIconLabelEl = document.createElement('label')
+          hideIconLabelEl.className = 'zadark-reaction__hide-icon'
+          hideIconLabelEl.appendChild(hideIconInputEl)
+          hideIconLabelEl.appendChild(document.createTextNode('Hide icon'))
+          const hideIconEvents = ['click', 'pointerdown', 'keydown']
+          hideIconEvents.forEach((eventName) => {
+            hideIconLabelEl.addEventListener(eventName, (e) => e.stopPropagation())
+          })
+
           popoverContentEl.appendChild(iconInputLabelEl)
+          popoverContentEl.appendChild(hideIconLabelEl)
           popoverContentEl.appendChild(popoverContentListEl)
           popoverContentEl.appendChild(popoverContentRecentEl)
 

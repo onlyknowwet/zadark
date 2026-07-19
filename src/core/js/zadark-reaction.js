@@ -615,8 +615,8 @@
   }
 
   const hiddenReactionType = (rIcon) => {
-    // Hide mode reduces MD5 modulo 1,000,000 and sends the exact result as a safe Number.
-    return 1000000 + Number(BigInt(`0x${md5Utf8(rIcon)}`) % BigInt(1000000))
+    // Hide mode uses a numeric type in the 1,000,000,000 range, reduced by MD5.
+    return 1000000000 + Number(BigInt(`0x${md5Utf8(rIcon)}`) % BigInt(1000000))
   }
 
   /**
@@ -776,10 +776,8 @@
           iconInputEl.placeholder = 'Để trống dùng icon hiện tại'
           iconInputEl.setAttribute('aria-label', 'rIcon tùy chọn')
           const stopControlPropagation = (e) => e.stopPropagation()
-          const iconInputEvents = ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend', 'keydown']
-          iconInputEvents.forEach((eventName) => {
-            iconInputEl.addEventListener(eventName, stopControlPropagation)
-          })
+          const iconInputEvents = ['pointerdown', 'mousedown', 'mouseup', 'click', 'touchstart', 'touchend']
+          iconInputEvents.forEach((eventName) => iconInputEl.addEventListener(eventName, stopControlPropagation))
 
           const iconInputLabelEl = document.createElement('label')
           iconInputLabelEl.className = 'zadark-reaction__icon-input'
@@ -793,6 +791,21 @@
           hideIconLabelEl.className = 'zadark-reaction__hide-icon'
           hideIconLabelEl.appendChild(hideIconInputEl)
           hideIconLabelEl.appendChild(document.createTextNode('Hide icon'))
+          const handleIconInputKeydown = (e) => {
+            const customIcon = iconInputEl.value.trim()
+            if (e.key === 'Enter' && !e.repeat && customIcon && hideIconInputEl.checked && typeof sendReaction === 'function') {
+              e.preventDefault()
+              e.stopPropagation()
+              sendReaction({
+                rType: hiddenReactionType(customIcon),
+                rIcon: customIcon
+              })
+              closePopover()
+              return
+            }
+            stopControlPropagation(e)
+          }
+          iconInputEl.addEventListener('keydown', handleIconInputKeydown)
           const syncHideIconState = () => {
             const hasCustomIcon = iconInputEl.value.trim() !== ''
             hideIconInputEl.disabled = !hasCustomIcon

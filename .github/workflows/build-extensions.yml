@@ -42,11 +42,11 @@ jobs:
         run: zip -r ../../zadark-chrome.zip .
 
       - name: Package Firefox source
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         run: git archive --format=zip --output=zadark-firefox-source.zip HEAD
 
       - name: Sign Firefox extension through Mozilla AMO
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         run: |
           npx --yes web-ext@8 sign \
             --source-dir=build/firefox \
@@ -66,7 +66,7 @@ jobs:
           retention-days: 14
 
       - name: Upload signed Firefox extension
-        if: github.event_name == 'workflow_dispatch'
+        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: zadark-firefox-signed

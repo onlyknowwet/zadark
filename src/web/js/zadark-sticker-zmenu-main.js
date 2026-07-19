@@ -7,6 +7,13 @@
   const OPENAPI_TOKEN_PATH = '/api/auth/openapi/access_token'
   const OPENAPI_TOKEN_STORAGE_KEY = '@ZaDark:zmenu-openapi-access-token'
   let openApiAccessToken = null
+  const logTokenStep = (step, phase, action, decision, details = {}) => {
+    console.log(`[ZaDarkSticker] zmenu token step ${step}/8`, { phase, action, decision, ...details })
+  }
+  const logSkippedTokenStep = (step, action, reason) => {
+    logTokenStep(step, 'start', action, 'evaluate whether this fallback is needed')
+    logTokenStep(step, 'end', action, `skipped; ${reason}`)
+  }
   const MIME_EXTENSIONS = {
     'image/avif': 'avif',
     'image/gif': 'gif',
@@ -71,30 +78,60 @@
   }
 
   const getCachedZmenuAccessToken = () => {
-    if (openApiAccessToken) return { accessToken: openApiAccessToken, source: 'captured OpenAPI response' }
+    logTokenStep(2, 'start', 'Check the in-memory token cache.', 'checking')
+    if (openApiAccessToken) {
+      logTokenStep(2, 'end', 'Check the in-memory token cache.', 'use in-memory token')
+      logSkippedTokenStep(3, 'Check the sessionStorage token cache.', 'in-memory token selected')
+      logSkippedTokenStep(4, 'Check localStorage zalo.auth_data.', 'in-memory token selected')
+      return { accessToken: openApiAccessToken, source: 'captured OpenAPI response' }
+    }
+    logTokenStep(2, 'end', 'Check the in-memory token cache.', 'not found; continue to session cache')
+    logTokenStep(3, 'start', 'Check the sessionStorage token cache.', 'checking')
     try {
       const sessionToken = sessionStorage.getItem(OPENAPI_TOKEN_STORAGE_KEY)
-      if (sessionToken) return { accessToken: sessionToken, source: 'captured OpenAPI session cache' }
-    } catch (_) {}
+      if (sessionToken) {
+        logTokenStep(3, 'end', 'Check the sessionStorage token cache.', 'use session token')
+        logSkippedTokenStep(4, 'Check localStorage zalo.auth_data.', 'session token selected')
+        return { accessToken: sessionToken, source: 'captured OpenAPI session cache' }
+      }
+      logTokenStep(3, 'end', 'Check the sessionStorage token cache.', 'not found; continue to local OAuth data')
+    } catch (error) {
+      logTokenStep(3, 'end', 'Check the sessionStorage token cache.', 'unavailable; continue to local OAuth data', { message: error && error.message ? error.message : String(error) })
+    }
+    logTokenStep(4, 'start', 'Check localStorage zalo.auth_data.', 'checking')
     try {
       const auth = JSON.parse(localStorage.getItem('zalo.auth_data') || '{}')
-      if (typeof auth.access_token === 'string' && auth.access_token) return { accessToken: auth.access_token, source: 'legacy zalo.auth_data fallback' }
-    } catch (_) {}
+      if (typeof auth.access_token === 'string' && auth.access_token) {
+        logTokenStep(4, 'end', 'Check localStorage zalo.auth_data.', 'use local OAuth token')
+        return { accessToken: auth.access_token, source: 'legacy zalo.auth_data fallback' }
+      }
+      logTokenStep(4, 'end', 'Check localStorage zalo.auth_data.', 'no token available')
+    } catch (error) {
+      logTokenStep(4, 'end', 'Check localStorage zalo.auth_data.', 'invalid or unavailable OAuth data', { message: error && error.message ? error.message : String(error) })
+    }
     return null
   }
 
   const getZmenuAccessToken = async () => {
+    logTokenStep(1, 'start', 'Ask ZaloOAuth SDK for an access token.', 'checking SDK availability and token state')
     if (window.ZaloOAuth && typeof window.ZaloOAuth.getAccessToken === 'function') {
       try {
         const data = await window.ZaloOAuth.getAccessToken()
         captureOpenApiToken(data)
         if (data && typeof data.access_token === 'string' && data.access_token) {
+          logTokenStep(1, 'end', 'Ask ZaloOAuth SDK for an access token.', 'use SDK token')
+          logSkippedTokenStep(2, 'Check the in-memory token cache.', 'SDK token selected')
+          logSkippedTokenStep(3, 'Check the sessionStorage token cache.', 'SDK token selected')
+          logSkippedTokenStep(4, 'Check localStorage zalo.auth_data.', 'SDK token selected')
           return { accessToken: data.access_token, source: 'ZaloOAuth SDK' }
         }
         throw new Error('The ZaloOAuth SDK returned no access token.')
       } catch (error) {
+        logTokenStep(1, 'end', 'Ask ZaloOAuth SDK for an access token.', 'SDK failed; continue to caches', { message: error && error.message ? error.message : String(error) })
         console.warn('[ZaDarkSticker] ZaloOAuth SDK token lookup failed; using cached fallback', error && error.message ? error.message : String(error))
       }
+    } else {
+      logTokenStep(1, 'end', 'Ask ZaloOAuth SDK for an access token.', 'SDK unavailable; continue to caches')
     }
     return getCachedZmenuAccessToken()
   }
@@ -132,8 +169,10 @@
       if (Number.isFinite(expiresIn)) updatedAuth.expires_at = Date.now() + expiresIn * 1000
       localStorage.setItem('zalo.auth_data', JSON.stringify(updatedAuth))
       captureOpenApiToken(data)
+      logTokenStep(8, 'end', 'Refresh the rejected OAuth token.', 'refresh succeeded; retry upload once', { status: response.status })
       return true
     } catch (error) {
+      logTokenStep(8, 'end', 'Refresh the rejected OAuth token.', 'refresh failed; stop upload', { message: error && error.message ? error.message : String(error) })
       console.warn('[ZaDarkSticker] explicit OAuth refresh failed', error && error.message ? error.message : String(error))
       return false
     }
@@ -296,7 +335,12 @@
       if (blob.size > MAX_UPLOAD_SIZE) throw new Error('The converted sticker image must not exceed 10 MiB.')
       const upload = async () => {
         const auth = await getZmenuAccessToken()
-        if (!auth) throw new Error('No zmenu OpenAPI access token. Sign out and sign in again so the extension can capture the access-token response.')
+        logTokenStep(5, 'start', 'Finalize token selection for the photo upload.', 'evaluating acquisition result')
+        if (!auth) {
+          logTokenStep(5, 'end', 'Finalize token selection for the photo upload.', 'no token; stop upload')
+          throw new Error('No zmenu OpenAPI access token. Sign out and sign in again so the extension can capture the access-token response.')
+        }
+        logTokenStep(5, 'end', 'Finalize token selection for the photo upload.', 'token selected; continue to upload', { source: auth.source })
         const form = new FormData()
         form.append('file', blob, fileName)
         console.log('[ZaDarkSticker] zmenu MAIN multipart upload request', {
@@ -307,19 +351,24 @@
           authorizationSource: auth.source
         })
         let response
+        logTokenStep(6, 'start', 'Send the authorized photo upload request.', 'sending', { authorizationSource: auth.source })
         try {
           response = await fetch('/api/admin/upload/photo', { method: 'POST', headers: { Authorization: `Bearer ${auth.accessToken}` }, body: form })
         } catch (error) {
           const message = error && error.message ? error.message : 'The zmenu upload request failed.'
+          logTokenStep(6, 'end', 'Send the authorized photo upload request.', 'network request failed', { message })
           console.error('[ZaDarkSticker] zmenu MAIN multipart upload response', { ok: false, message })
           throw new Error(message)
         }
+        logTokenStep(6, 'end', 'Send the authorized photo upload request.', 'response received; inspect response', { status: response.status, ok: response.ok })
         console.log('[ZaDarkSticker] zmenu MAIN multipart upload response', { status: response.status, ok: response.ok })
         let data
+        logTokenStep(7, 'start', 'Inspect the upload response and token status.', 'parsing response')
         try {
           data = await response.json()
           uploadResponse = data
         } catch (error) {
+          logTokenStep(7, 'end', 'Inspect the upload response and token status.', 'invalid JSON; stop upload', { status: response.status })
           console.error('[ZaDarkSticker] zmenu MAIN upload JSON parse failed', error && error.message ? error.message : 'Unknown JSON parse failure.')
           if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
           throw new Error('Upload returned an invalid JSON response.')
@@ -329,14 +378,26 @@
           ok: response.ok,
           body: data
         })
+        const apiError = hasApiError(data)
+        logTokenStep(7, 'end', 'Inspect the upload response and token status.', apiError
+          ? (Number(data.error) === -115 ? 'token rejected; continue to refresh step' : 'API error; continue to final error handling')
+          : (response.ok ? 'token accepted; upload response is successful' : 'HTTP error; continue to final error handling'), {
+          status: response.status,
+          error: data && data.error,
+          message: data && data.message
+        })
         return { response, data }
       }
       let uploaded = await upload()
       if (hasApiError(uploaded.data) && Number(uploaded.data.error) === -115) {
         const tokenErrorMessage = getApiErrorMessage(uploaded.data)
+        logTokenStep(8, 'start', 'Refresh the rejected OAuth token.', 'clear extension cache and request one refresh')
         clearOpenApiTokenCache()
         if (!await refreshOpenApiToken()) throw new Error(tokenErrorMessage)
         uploaded = await upload()
+      } else {
+        logTokenStep(8, 'start', 'Decide whether the OAuth token needs explicit refresh.', 'checking upload response')
+        logTokenStep(8, 'end', 'Decide whether the OAuth token needs explicit refresh.', 'refresh not needed')
       }
       const { response, data } = uploaded
       if (hasApiError(data)) throw new Error(getApiErrorMessage(data))

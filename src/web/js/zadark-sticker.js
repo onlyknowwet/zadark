@@ -4,6 +4,7 @@
   const RESPONSE_EVENT = '@ZaDark:Sticker:SendResult'
   const UPLOAD_ACTION = '@ZaDark:Sticker:Upload'
   const TIMEOUT = 30000
+  let currentConversationId = null
 
   const resultError = (message) => ({ ok: false, message })
   const normalizeError = (error, fallback = 'Unexpected sticker failure.') => {
@@ -68,6 +69,18 @@
     reader.readAsDataURL(file)
   })
 
+  const syncCurrentConversation = () => {
+    const detectedId = global.ZaDarkUtils && global.ZaDarkUtils.getCurrentConvId()
+    currentConversationId = typeof detectedId === 'string' && detectedId.trim()
+      ? detectedId.trim()
+      : null
+    console.debug('[ZaDarkSticker] conversation state', { conversationId: currentConversationId })
+    return currentConversationId
+  }
+
+  document.addEventListener('@ZaDark:CONV_ID_CHANGE', syncCurrentConversation)
+  syncCurrentConversation()
+
   global.ZaDarkSticker = {
     upload: async (file) => {
       try {
@@ -79,7 +92,7 @@
     send: async (input) => {
       try {
         if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
-        const receiverId = global.ZaDarkUtils && global.ZaDarkUtils.getCurrentConvId()
+        const receiverId = currentConversationId || syncCurrentConversation()
         if (!receiverId || !receiverId.trim()) throw new Error('Select a Zalo conversation before sending a sticker.')
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')

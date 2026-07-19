@@ -3,6 +3,9 @@
   const UPLOAD_PROTOCOL = 'binary-upload-v3'
   const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
   const MAX_STICKER_DIMENSION = 512
+  const OPENAPI_TOKEN_PATH = '/api/auth/openapi/access_token'
+  const OPENAPI_TOKEN_STORAGE_KEY = '@ZaDark:zmenu-openapi-access-token'
+  let openApiAccessToken = null
   const MIME_EXTENSIONS = {
     'image/avif': 'avif',
     'image/gif': 'gif',
@@ -11,6 +14,75 @@
     'image/svg+xml': 'svg',
     'image/webp': 'webp'
   }
+
+  const isOpenApiTokenUrl = (value) => {
+    try { return new URL(value, location.href).pathname === OPENAPI_TOKEN_PATH } catch (_) { return false }
+  }
+
+  const captureOpenApiToken = (data) => {
+    const accessToken = data && typeof data.access_token === 'string'
+      ? data.access_token
+      : data && data.data && typeof data.data.access_token === 'string' ? data.data.access_token : null
+    if (!accessToken) return
+    openApiAccessToken = accessToken
+    try { sessionStorage.setItem(OPENAPI_TOKEN_STORAGE_KEY, accessToken) } catch (_) {}
+    console.debug('[ZaDarkSticker] captured zmenu OpenAPI access token', {
+      source: 'openapi/access_token response',
+      expiresIn: data.expires_in || (data.data && data.data.expires_in)
+    })
+  }
+
+  const observeOpenApiTokenResponse = (data) => {
+    try { captureOpenApiToken(data) } catch (error) {
+      console.warn('[ZaDarkSticker] could not capture zmenu OpenAPI access token', error && error.message ? error.message : String(error))
+    }
+  }
+
+  const installOpenApiTokenCapture = () => {
+    const originalFetch = window.fetch.bind(window)
+    window.fetch = async (...args) => {
+      const response = await originalFetch(...args)
+      const input = args[0]
+      const requestUrl = input && typeof input === 'object' && typeof input.url === 'string' ? input.url : String(input || '')
+      if (isOpenApiTokenUrl(requestUrl)) {
+        response.clone().json().then(observeOpenApiTokenResponse).catch(() => {})
+      }
+      return response
+    }
+
+    const originalOpen = XMLHttpRequest.prototype.open
+    XMLHttpRequest.prototype.open = function (method, url, ...args) {
+      this.__zadarkOpenApiTokenRequest = isOpenApiTokenUrl(String(url || ''))
+      if (!this.__zadarkOpenApiTokenListener) {
+        this.__zadarkOpenApiTokenListener = true
+        this.addEventListener('load', function () {
+          if (!this.__zadarkOpenApiTokenRequest) return
+          try {
+            const data = this.responseType === 'json' && this.response
+              ? this.response
+              : JSON.parse(this.responseText || '{}')
+            observeOpenApiTokenResponse(data)
+          } catch (_) {}
+        })
+      }
+      return originalOpen.call(this, method, url, ...args)
+    }
+  }
+
+  const getZmenuAccessToken = () => {
+    if (openApiAccessToken) return { accessToken: openApiAccessToken, source: 'captured OpenAPI response' }
+    try {
+      const sessionToken = sessionStorage.getItem(OPENAPI_TOKEN_STORAGE_KEY)
+      if (sessionToken) return { accessToken: sessionToken, source: 'captured OpenAPI session cache' }
+    } catch (_) {}
+    try {
+      const auth = JSON.parse(localStorage.getItem('zalo.auth_data') || '{}')
+      if (typeof auth.access_token === 'string' && auth.access_token) return { accessToken: auth.access_token, source: 'legacy zalo.auth_data fallback' }
+    } catch (_) {}
+    return null
+  }
+
+  installOpenApiTokenCapture()
 
   const safeFileName = (value, mimeType) => {
     let fileName = typeof value === 'string' ? value.trim().split(/[\\/]/).pop() : ''
@@ -150,8 +222,8 @@
       const hasDataUrl = Object.prototype.hasOwnProperty.call(payload, 'dataUrl')
       const hasSourceUrl = Object.prototype.hasOwnProperty.call(payload, 'sourceUrl')
       if (hasDataUrl === hasSourceUrl) throw new Error('Provide exactly one sticker file or source URL.')
-      const auth = JSON.parse(localStorage.getItem('zalo.auth_data') || '{}')
-      if (!auth.access_token) throw new Error('No authenticated zmenu session. Open zmenu.zalo.me and sign in first.')
+      const auth = getZmenuAccessToken()
+      if (!auth) throw new Error('No zmenu OpenAPI access token. Sign out and sign in again so the extension can capture the access-token response.')
       let blob
       let fileName
       if (hasSourceUrl) {
@@ -181,11 +253,12 @@
         endpoint: '/api/admin/upload/photo',
         fileName,
         mimeType: blob.type,
-        size: blob.size
+        size: blob.size,
+        authorizationSource: auth.source
       })
       let response
       try {
-        response = await fetch('/api/admin/upload/photo', { method: 'POST', headers: { Authorization: `Bearer ${auth.access_token}` }, body: form })
+        response = await fetch('/api/admin/upload/photo', { method: 'POST', headers: { Authorization: `Bearer ${auth.accessToken}` }, body: form })
       } catch (error) {
         const message = error && error.message ? error.message : 'The zmenu upload request failed.'
         console.error('[ZaDarkSticker] zmenu MAIN multipart upload response', { ok: false, message })
@@ -202,6 +275,11 @@
         throw new Error('Upload returned an invalid JSON response.')
       }
       console.debug('[ZaDarkSticker] zmenu MAIN upload JSON response', data)
+      if (data && data.error === -115) {
+        openApiAccessToken = null
+        try { sessionStorage.removeItem(OPENAPI_TOKEN_STORAGE_KEY) } catch (_) {}
+        throw new Error('Zmenu rejected the OpenAPI access token. Sign out and sign in again to obtain a fresh token.')
+      }
       if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
       const photoUrl = data.data && data.data.photoUrl
       let parsedPhotoUrl

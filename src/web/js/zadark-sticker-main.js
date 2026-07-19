@@ -24,6 +24,28 @@
     if (!response.ok) throw new Error(`Request failed: ${response.status}`)
     return response.json()
   }
+  const parseJson = (value) => {
+    try { return JSON.parse(value) } catch (_) { return value }
+  }
+  const logSendResponse = async (response, cipher) => {
+    let responseBody
+    try {
+      const responseText = await response.text()
+      const responseEnvelope = parseJson(responseText)
+      responseBody = responseEnvelope
+      if (responseEnvelope && typeof responseEnvelope === 'object' && typeof responseEnvelope.data === 'string' && responseEnvelope.data) {
+        try {
+          responseBody = { ...responseEnvelope, data: parseJson(await cipher.decrypt(responseEnvelope.data)) }
+        } catch (error) {
+          responseBody = { ...responseEnvelope, data: '[decryption failed]' }
+          console.warn('[ZaDarkSticker] response diagnostic failed', error)
+        }
+      }
+      console.debug('[ZaDarkSticker] send response (decrypted)', { status: response.status, body: responseBody })
+    } catch (error) {
+      console.warn('[ZaDarkSticker] response diagnostic failed', error)
+    }
+  }
   const send = async (input) => {
     try {
       if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
@@ -66,11 +88,15 @@
         }),
         decorLog: JSON.stringify({ fw: { pmsg: { st: 1, ts: 1, id: referenceId }, rmsg: { st: 1, ts: 1, id: referenceId }, fwLvl: 12 } })
       }
-      const params = await cipher.encrypt(payload)
       const path = input.mode === 'direct' ? '/api/message/forward' : '/api/group/forward'
-      const response = await fetch(`https://tt-files-wpa.chat.zalo.me${path}?zpw_ver=671&zpw_type=30&nretry=0`, {
+      const endpoint = `https://tt-files-wpa.chat.zalo.me${path}?zpw_ver=671&zpw_type=30&nretry=0`
+      console.debug('[ZaDarkSticker] send endpoint', endpoint)
+      console.debug('[ZaDarkSticker] send request (decrypted)', payload)
+      const params = await cipher.encrypt(payload)
+      const response = await fetch(endpoint, {
         method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ params })
       })
+      await logSendResponse(response, cipher)
       if (!response.ok) throw new Error(`Request failed: ${response.status}`)
       return { ok: true, message: 'Sticker sent.' }
     } catch (error) { return { ok: false, message: error.message || String(error) } }

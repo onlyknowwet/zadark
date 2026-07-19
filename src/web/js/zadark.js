@@ -880,6 +880,7 @@
     })
 
     document.addEventListener('@ZaDark:CONV_ID_CHANGE', function () {
+      console.log('Current conversation:', ZaDarkUtils.getCurrentConvId())
       loadThreadChatBg()
     })
   }

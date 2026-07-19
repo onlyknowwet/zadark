@@ -78,6 +78,12 @@
     reader.readAsDataURL(file)
   })
 
+  const fileNameFromUrl = (url) => {
+    let fileName = ''
+    try { fileName = decodeURIComponent(url.pathname).split('/').pop() } catch (_) { fileName = url.pathname.split('/').pop() }
+    return (fileName || 'sticker').replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '') || 'sticker'
+  }
+
   const getDetectedConversationId = () => {
     const detectedId = global.ZaDarkUtils && global.ZaDarkUtils.getCurrentConvId()
     return typeof detectedId === 'string' && detectedId.trim()
@@ -147,6 +153,17 @@
         const result = await runtimeMessage({ action: UPLOAD_ACTION, payload: { dataUrl, fileName: file.name } })
         return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
       } catch (error) { return resultError(normalizeError(error, 'Sticker upload failed.').message) }
+    },
+    uploadUrl: async (sourceUrl) => {
+      try {
+        const url = new URL(String(sourceUrl || '').trim())
+        if (url.protocol !== 'https:') throw new Error('Sticker source URL must use HTTPS.')
+        const result = await runtimeMessage({
+          action: UPLOAD_ACTION,
+          payload: { sourceUrl: url.href, fileName: fileNameFromUrl(url) }
+        })
+        return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
+      } catch (error) { return resultError(normalizeError(error, 'Sticker URL upload failed.').message) }
     },
     send: async (input) => {
       try {

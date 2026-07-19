@@ -4,6 +4,7 @@
   const STICKER_MAX_FILE_SIZE = 10 * 1024 * 1024
   const STICKER_PANEL_ID = 'js-zadark-sticker-panel'
   let stickerBusy = false
+  let trustedStickerUrl = null
 
   const stickerPanelHTML = `
     <section id="js-zadark-sticker-panel" class="zadark-panel zadark-sticker-panel" aria-labelledby="zadark-sticker-title">
@@ -86,6 +87,7 @@
         return
       }
       getElement('js-zadark-sticker-url').value = result.photoUrl
+      trustedStickerUrl = result.photoUrl
       setStickerStatus('Đã tải ảnh. Kiểm tra URL rồi nhấn “Gửi sticker”.', 'success')
     } catch (error) {
       setStickerStatus(error.message || 'Không thể tải ảnh lên.', 'error')
@@ -127,9 +129,21 @@
     }
 
     setStickerBusy(true)
-    setStickerStatus('Đang gửi sticker…', 'loading')
     try {
-      const result = await ZaDarkSticker.send({ stickerUrl, mode })
+      let sendUrl = stickerUrl
+      if (sendUrl !== trustedStickerUrl) {
+        setStickerStatus('Đang tải ảnh lên…', 'loading')
+        const uploadResult = await ZaDarkSticker.uploadUrl(sendUrl)
+        if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
+          setStickerStatus((uploadResult && uploadResult.message) || 'Không thể tải ảnh lên.', 'error')
+          return
+        }
+        sendUrl = uploadResult.photoUrl
+        trustedStickerUrl = sendUrl
+        urlEl.value = sendUrl
+      }
+      setStickerStatus('Đang gửi sticker…', 'loading')
+      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl, mode })
       if (!result || !result.ok) {
         setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
         return
@@ -162,6 +176,9 @@
     })
     urlEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') sendSticker()
+    })
+    urlEl.addEventListener('input', () => {
+      if (urlEl.value.trim() !== trustedStickerUrl) trustedStickerUrl = null
     })
     const dragEnterEvents = ['dragenter', 'dragover']
     dragEnterEvents.forEach((eventName) => {

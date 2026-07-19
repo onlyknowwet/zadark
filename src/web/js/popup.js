@@ -48,6 +48,7 @@ const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
 let stickerBusy = false
+let trustedStickerUrl = null
 
 $(ratingElName).attr('href', ZaDarkUtils.getRatingURL(ZaDarkBrowser.name))
 
@@ -216,6 +217,7 @@ const uploadStickerFile = async (file) => {
     }
 
     $(stickerUrlInputElName).val(result.photoUrl)
+    trustedStickerUrl = result.photoUrl
     setStickerStatus('Đã tải ảnh. Kiểm tra URL rồi nhấn “Gửi sticker”.', 'success')
   } catch (error) {
     const normalized = normalizeError(error, 'Không thể tải ảnh lên.')
@@ -235,6 +237,13 @@ const isHttpsUrl = (value) => {
   }
 }
 
+const fileNameFromUrl = (value) => {
+  const url = new URL(value)
+  let fileName = ''
+  try { fileName = decodeURIComponent(url.pathname).split('/').pop() } catch (_) { fileName = url.pathname.split('/').pop() }
+  return (fileName || 'sticker').replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '') || 'sticker'
+}
+
 const sendSticker = async () => {
   if (stickerBusy) return
 
@@ -247,12 +256,28 @@ const sendSticker = async () => {
   }
 
   setStickerBusy(true)
-  setStickerStatus('Đang gửi sticker…', 'loading')
   try {
+    let sendUrl = stickerUrl
+    if (sendUrl !== trustedStickerUrl) {
+      setStickerStatus('Đang tải ảnh lên…', 'loading')
+      const uploadResult = await ZaDarkBrowser.sendMessage({
+        action: '@ZaDark:Sticker:Upload',
+        payload: { sourceUrl: sendUrl, fileName: fileNameFromUrl(sendUrl) }
+      })
+      if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
+        const message = uploadResult && typeof uploadResult.message === 'string' ? uploadResult.message : 'Không thể tải ảnh lên.'
+        setStickerStatus(message, 'error')
+        return
+      }
+      sendUrl = uploadResult.photoUrl
+      trustedStickerUrl = sendUrl
+      $(stickerUrlInputElName).val(sendUrl)
+    }
+    setStickerStatus('Đang gửi sticker…', 'loading')
     console.debug('[ZaDarkSticker] popup request', { action: '@ZaDark:Sticker:SendInCurrentTab', mode })
     const result = await ZaDarkBrowser.sendMessage({
       action: '@ZaDark:Sticker:SendInCurrentTab',
-      payload: { stickerUrl, mode }
+      payload: { stickerUrl: sendUrl, mode }
     })
     const ok = !!(result && result.ok)
     console.debug('[ZaDarkSticker] popup result', { action: '@ZaDark:Sticker:SendInCurrentTab', mode, ok })
@@ -309,6 +334,9 @@ const loadStickerPanel = () => {
   })
   $(stickerUrlInputElName).on('keydown', (event) => {
     if (event.key === 'Enter') sendSticker()
+  })
+  $(stickerUrlInputElName).on('input', () => {
+    if ($(stickerUrlInputElName).val().trim() !== trustedStickerUrl) trustedStickerUrl = null
   })
   $(stickerSendButtonElName).on('click', sendSticker)
 }

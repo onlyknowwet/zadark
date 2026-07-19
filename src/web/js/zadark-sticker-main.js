@@ -49,8 +49,7 @@
   const send = async (input) => {
     try {
       if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
-      const path = input.mode === 'direct' ? '/api/message/forward' : '/api/group/forward'
-      const endpoint = `https://tt-files-wpa.chat.zalo.me${path}?zpw_ver=671&zpw_type=30&nretry=0`
+      const endpoint = 'https://tt-files-wpa.chat.zalo.me/api/message/photo_url?zpw_ver=671&zpw_type=30&nretry=0'
       console.debug('[ZaDarkSticker] send endpoint', endpoint)
       if (typeof input.receiverId !== 'string' || !input.receiverId.trim()) throw new Error('Receiver ID is required.')
       const stickerUrl = new URL(String(input.stickerUrl || ''))
@@ -76,21 +75,26 @@
         receiverId = group.data && group.data.data && group.data.data[receiverId]
         if (!receiverId) throw new Error('Could not resolve the selected group conversation.')
       }
-      const referenceId = 'deadbeef'
-      const receiverKey = input.mode === 'direct' ? 'toid' : 'grid'
+      const receiverKey = input.mode === 'direct' ? 'toId' : 'grid'
       const payload = {
-        [receiverKey]: receiverId, imei, visibility: 0, ttl: 0, zsource: -1, msgType: 2, clientId: Date.now(),
-        msgInfo: JSON.stringify({
-          title: '', description: '', childnumber: 0, action: '', type: '', thumbUrl: input.stickerUrl,
-          oriUrl: input.stickerUrl, normalUrl: input.stickerUrl, contentId: '1337', thumb_width: input.width,
-          thumb_height: input.height, webp: JSON.stringify({ width: input.width, url: input.stickerUrl, height: input.height }),
-          width: input.width, height: input.height,
-          properties: JSON.stringify({ color: -1, size: -1, type: 3, subType: 0, ext: JSON.stringify({ shouldParseLinkOrContact: 0 }) }),
-          photoId: 1,
-          reference: JSON.stringify({ type: 3, data: JSON.stringify({ id: referenceId, logSrcType: 1, ts: 1, fwLvl: 12, rootMsgRef: { id: referenceId, ts: 1, logSrcType: 1 } }) })
-        }),
-        decorLog: JSON.stringify({ fw: { pmsg: { st: 1, ts: 1, id: referenceId }, rmsg: { st: 1, ts: 1, id: referenceId }, fwLvl: 12 } })
+        clientId: Date.now(),
+        title: '',
+        oriUrl: input.stickerUrl,
+        thumbUrl: input.stickerUrl,
+        hdUrl: input.stickerUrl,
+        width: input.width,
+        height: input.height,
+        properties: JSON.stringify({ subType: 0, color: -1, size: -1, type: 3, ext: JSON.stringify({ sSrcStr: '', sSrcType: -1 }) }),
+        contentId: '1337',
+        thumb_height: input.height,
+        thumb_width: input.width,
+        webp: JSON.stringify({ width: input.width, height: input.height, url: input.stickerUrl }),
+        jcp: JSON.stringify({ pStickerType: 1 }),
+        zsource: -1,
+        [receiverKey]: receiverId,
+        ttl: 0
       }
+      if (input.mode === 'group') payload.visibility = 0
       console.debug('[ZaDarkSticker] send request (decrypted)', payload)
       const params = await cipher.encrypt(payload)
       const response = await fetch(endpoint, {

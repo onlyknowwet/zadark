@@ -30,6 +30,16 @@ const switchBlockDeliveredElName = '#js-switch-block-delivered'
 
 const switchUseHotkeysElName = '#js-switch-use-hotkeys'
 
+const stickerPanelElName = '.zadark-sticker-panel'
+const stickerDropzoneElName = '#js-sticker-dropzone'
+const stickerFileInputElName = '#js-sticker-file'
+const stickerUrlInputElName = '#js-sticker-url'
+const stickerModeInputElName = 'input:radio[name="sticker-mode"]'
+const stickerStatusElName = '#js-sticker-status'
+const stickerSendButtonElName = '#js-sticker-send'
+const stickerMaxFileSize = 10 * 1024 * 1024
+let stickerBusy = false
+
 $(ratingElName).attr('href', ZaDarkUtils.getRatingURL(ZaDarkBrowser.name))
 
 ZaDarkBrowser.getExtensionSettings().then(async ({
@@ -137,6 +147,150 @@ $(switchUseHotkeysElName).on('change', function () {
   const isEnabled = $(this).is(':checked')
   ZaDarkBrowser.sendMessage2ZaloTabs(MSG_ACTIONS.CHANGE_USE_HOTKEYS, { isEnabled })
 })
+
+const setStickerStatus = (message = '', state = '') => {
+  const statusEl = document.querySelector(stickerStatusElName)
+  if (!statusEl) return
+  statusEl.textContent = message
+  statusEl.setAttribute('data-state', state)
+}
+
+const setStickerBusy = (busy) => {
+  stickerBusy = busy
+  const panelEl = document.querySelector(stickerPanelElName)
+  if (!panelEl) return
+
+  panelEl.querySelectorAll('input, button').forEach((controlEl) => {
+    controlEl.disabled = busy
+  })
+  panelEl.classList.toggle('zadark-sticker-panel--busy', busy)
+  $(stickerDropzoneElName).attr('aria-disabled', busy ? 'true' : 'false')
+}
+
+const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader()
+  reader.onload = () => resolve(reader.result)
+  reader.onerror = () => reject(new Error('Không thể đọc tệp ảnh.'))
+  reader.readAsDataURL(file)
+})
+
+const uploadStickerFile = async (file) => {
+  if (stickerBusy) return
+
+  if (!file || !file.type || !file.type.startsWith('image/')) {
+    setStickerStatus('Vui lòng chọn một tệp hình ảnh.', 'error')
+    return
+  }
+  if (file.size > stickerMaxFileSize) {
+    setStickerStatus('Dung lượng ảnh tối đa là 10 MiB.', 'error')
+    return
+  }
+
+  setStickerBusy(true)
+  setStickerStatus('Đang tải ảnh lên…', 'loading')
+
+  try {
+    const dataUrl = await readFileAsDataUrl(file)
+    const result = await ZaDarkBrowser.sendMessage({
+      action: '@ZaDark:Sticker:Upload',
+      payload: { dataUrl, fileName: file.name }
+    })
+
+    if (!result || !result.ok || !result.photoUrl) {
+      setStickerStatus((result && result.message) || 'Không thể tải ảnh lên.', 'error')
+      return
+    }
+
+    $(stickerUrlInputElName).val(result.photoUrl)
+    setStickerStatus('Đã tải ảnh. Kiểm tra URL rồi nhấn “Gửi sticker”.', 'success')
+  } catch (error) {
+    setStickerStatus(error.message || 'Không thể tải ảnh lên.', 'error')
+  } finally {
+    setStickerBusy(false)
+  }
+}
+
+const isHttpsUrl = (value) => {
+  try {
+    const url = new URL(value)
+    return url.protocol === 'https:' && !!url.hostname
+  } catch (_) {
+    return false
+  }
+}
+
+const sendSticker = async () => {
+  if (stickerBusy) return
+
+  const stickerUrl = $(stickerUrlInputElName).val().trim()
+  const mode = $(stickerModeInputElName).filter(':checked').val()
+  if (!isHttpsUrl(stickerUrl)) {
+    setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
+    $(stickerUrlInputElName).trigger('focus')
+    return
+  }
+
+  setStickerBusy(true)
+  setStickerStatus('Đang gửi sticker…', 'loading')
+  try {
+    const result = await ZaDarkBrowser.sendMessage({
+      action: '@ZaDark:Sticker:SendInCurrentTab',
+      payload: { stickerUrl, mode }
+    })
+    if (!result || !result.ok) {
+      setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
+      return
+    }
+    setStickerStatus('Đã gửi sticker.', 'success')
+  } catch (error) {
+    setStickerStatus(error.message || 'Không thể gửi sticker.', 'error')
+  } finally {
+    setStickerBusy(false)
+  }
+}
+
+const loadStickerPanel = () => {
+  const dropzoneEl = document.querySelector(stickerDropzoneElName)
+  const fileInputEl = document.querySelector(stickerFileInputElName)
+  if (!dropzoneEl || !fileInputEl) return
+
+  fileInputEl.addEventListener('change', () => {
+    uploadStickerFile(fileInputEl.files[0])
+    fileInputEl.value = ''
+  })
+  dropzoneEl.addEventListener('click', (event) => {
+    if (event.target !== fileInputEl && !stickerBusy) fileInputEl.click()
+  })
+  dropzoneEl.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ') return
+    event.preventDefault()
+    if (!stickerBusy) fileInputEl.click()
+  })
+
+  const dragEnterEvents = ['dragenter', 'dragover']
+  dragEnterEvents.forEach((eventName) => {
+    dropzoneEl.addEventListener(eventName, (event) => {
+      event.preventDefault()
+      if (!stickerBusy) dropzoneEl.classList.add('zadark-sticker-dropzone--active')
+    })
+  })
+  const dragLeaveEvents = ['dragleave', 'drop']
+  dragLeaveEvents.forEach((eventName) => {
+    dropzoneEl.addEventListener(eventName, (event) => {
+      event.preventDefault()
+      dropzoneEl.classList.remove('zadark-sticker-dropzone--active')
+    })
+  })
+  dropzoneEl.addEventListener('drop', (event) => {
+    if (!stickerBusy) uploadStickerFile(event.dataTransfer.files[0])
+  })
+  $(stickerUrlInputElName).on('keydown', (event) => {
+    if (event.key === 'Enter') sendSticker()
+  })
+  $(stickerSendButtonElName).on('click', sendSticker)
+}
+
+loadStickerPanel()
 
 const handleBlockingRuleChange = (elName, ruleId) => {
   return () => {

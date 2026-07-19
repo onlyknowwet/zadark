@@ -197,6 +197,39 @@
         </div>
       </div>
     </div>
+
+    <div class="zadark-panel zadark-sticker-panel">
+      <div class="zadark-panel__body">
+        <div class="zadark-sticker-panel__heading">
+          <div>
+            <h2>Gửi sticker ảnh</h2>
+            <p>Chọn ảnh từ máy hoặc dán URL HTTPS.</p>
+          </div>
+        </div>
+
+        <div id="js-sticker-dropzone" class="zadark-sticker-dropzone" role="button" tabindex="0" aria-controls="js-sticker-file">
+          <input id="js-sticker-file" class="zadark-sticker-dropzone__input" type="file" accept="image/*">
+          <span class="zadark-sticker-dropzone__icon" aria-hidden="true">↑</span>
+          <span><strong>Kéo thả ảnh vào đây</strong> hoặc <span class="zadark-sticker-dropzone__link">chọn tệp</span></span>
+          <small>JPG, PNG, GIF hoặc WebP · tối đa 10 MiB</small>
+        </div>
+
+        <label class="zadark-sticker-field" for="js-sticker-url">
+          <span>URL ảnh</span>
+          <input id="js-sticker-url" class="zadark-input" type="url" inputmode="url" placeholder="https://example.com/anh.png" autocomplete="off">
+        </label>
+
+        <fieldset class="zadark-sticker-mode">
+          <legend>Loại cuộc trò chuyện</legend>
+          <label><input type="radio" name="sticker-mode" value="direct" checked required> Cá nhân</label>
+          <label><input type="radio" name="sticker-mode" value="group" required> Nhóm</label>
+        </fieldset>
+
+        <p class="zadark-sticker-note">Tải ảnh từ máy cần tab <a href="https://zmenu.zalo.me" target="_blank" rel="noopener noreferrer">zmenu.zalo.me</a> đang mở và đã đăng nhập.</p>
+        <div id="js-sticker-status" class="zadark-sticker-status" role="status" aria-live="polite"></div>
+        <button id="js-sticker-send" class="zadark-sticker-send" type="button">Gửi sticker</button>
+      </div>
+    </div>
   </div>
 
   <div class="zadark-popup__footer">

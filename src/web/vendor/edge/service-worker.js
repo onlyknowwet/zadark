@@ -7,11 +7,29 @@
 const MSG_ACTIONS = {
   GET_ENABLED_BLOCKING_RULE_IDS: '@ZaDark:GET_ENABLED_BLOCKING_RULE_IDS',
   UPDATE_ENABLED_BLOCKING_RULE_IDS: '@ZaDark:UPDATE_ENABLED_BLOCKING_RULE_IDS',
-  UPLOAD_STICKER: '@ZaDark:Sticker:Upload'
+  UPLOAD_STICKER: '@ZaDark:Sticker:Upload',
+  SEND_STICKER_IN_CURRENT_TAB: '@ZaDark:Sticker:SendInCurrentTab'
 }
 
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
 const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
+const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
+
+const validateSendPayload = (payload) => {
+  if (!payload || typeof payload !== 'object') return 'The popup supplied malformed sticker details.'
+  if (payload.mode !== 'direct' && payload.mode !== 'group') return 'Sticker mode must be direct or group.'
+  if (typeof payload.stickerUrl !== 'string' || !payload.stickerUrl.trim()) return 'Sticker URL is required.'
+  try {
+    if (new URL(String(payload.stickerUrl || '')).protocol !== 'https:') return 'Sticker URL must use HTTPS.'
+  } catch (_) {
+    return 'Sticker URL must be a valid HTTPS URL.'
+  }
+  return null
+}
+
+const normalizeSendResult = (result) => result && typeof result.ok === 'boolean' && typeof result.message === 'string'
+  ? { ok: result.ok, message: result.message }
+  : malformedSendResult
 
 const SETTINGS_RULE_KEYS = {
   rules_block_typing: 'enabledBlockTyping',
@@ -66,6 +84,27 @@ chrome.runtime.onInstalled.addListener((details) => {
 chrome.runtime.onMessage.addListener(
   (request, sender, sendResponse) => {
     const { action, payload } = request || {}
+
+    if (action === MSG_ACTIONS.SEND_STICKER_IN_CURRENT_TAB) {
+      const invalid = validateSendPayload(payload)
+      if (invalid) {
+        sendResponse({ ok: false, message: invalid })
+        return true
+      }
+      chrome.tabs.query({ active: true, currentWindow: true, url: 'https://chat.zalo.me/*' }, (tabs) => {
+        if (chrome.runtime.lastError || tabs.length !== 1 || typeof tabs[0].id !== 'number') {
+          sendResponse({ ok: false, message: 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.' })
+          return
+        }
+        chrome.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:SendInTab', payload }, (result) => {
+          const error = chrome.runtime.lastError
+          sendResponse(error
+            ? { ok: false, message: 'Could not contact the active Zalo chat tab. Reload it and try again.' }
+            : normalizeSendResult(result))
+        })
+      })
+      return true
+    }
 
     if (action === MSG_ACTIONS.UPLOAD_STICKER) {
       chrome.tabs.query({ url: 'https://zmenu.zalo.me/*' }, (tabs) => {

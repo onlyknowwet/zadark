@@ -81,4 +81,25 @@
       } catch (error) { return resultError(error.message || String(error)) }
     }
   }
+
+  const handleSendInTab = (request) => {
+    if (!request || request.action !== '@ZaDark:Sticker:SendInTab') return null
+    const payload = request.payload
+    if (!payload || typeof payload !== 'object') return Promise.resolve(resultError('The popup supplied malformed sticker details.'))
+    return global.ZaDarkSticker.send(payload)
+  }
+
+  if (typeof browser !== 'undefined') {
+    browser.runtime.onMessage.addListener((request) => {
+      const result = handleSendInTab(request)
+      if (result) return result
+    })
+  } else {
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+      const result = handleSendInTab(request)
+      if (!result) return false
+      result.then(sendResponse)
+      return true
+    })
+  }
 })(window)

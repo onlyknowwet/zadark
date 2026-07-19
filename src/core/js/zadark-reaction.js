@@ -791,6 +791,15 @@
           hideIconLabelEl.className = 'zadark-reaction__hide-icon'
           hideIconLabelEl.appendChild(hideIconInputEl)
           hideIconLabelEl.appendChild(document.createTextNode('Hide icon'))
+          const syncHideIconState = () => {
+            const hasCustomIcon = iconInputEl.value.trim() !== ''
+            hideIconInputEl.disabled = !hasCustomIcon
+            if (!hasCustomIcon) hideIconInputEl.checked = false
+            hideIconLabelEl.classList.toggle('zadark-reaction__hide-icon--disabled', !hasCustomIcon)
+            hideIconLabelEl.setAttribute('aria-disabled', String(!hasCustomIcon))
+          }
+          iconInputEl.addEventListener('input', syncHideIconState)
+          syncHideIconState()
           const hideIconEvents = ['click', 'pointerdown', 'keydown']
           hideIconEvents.forEach((eventName) => {
             hideIconLabelEl.addEventListener(eventName, (e) => e.stopPropagation())

@@ -121,6 +121,13 @@
     &:focus-within {
       color: var(--text-primary);
     }
+
+    &--disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+
+      input { cursor: not-allowed; }
+    }
   }
 
   .zadark-reaction__popover-content__list {

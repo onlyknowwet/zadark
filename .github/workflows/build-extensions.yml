@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-unsigned:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -41,12 +41,53 @@ jobs:
         working-directory: build/chrome
         run: zip -r ../../zadark-chrome.zip .
 
+      - name: Package unsigned Firefox extension
+        working-directory: build/firefox
+        run: zip -r ../../zadark-firefox-unsigned.zip .
+
+      - name: Upload Chrome extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: zadark-chrome
+          path: zadark-chrome.zip
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload unsigned Firefox extension
+        uses: actions/upload-artifact@v4
+        with:
+          name: zadark-firefox-unsigned
+          path: zadark-firefox-unsigned.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  build-signed-firefox:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+        env:
+          HUSKY: 0
+
+      - name: Build Firefox extension
+        run: yarn build
+
       - name: Package Firefox source
-        if: github.event_name != 'pull_request'
         run: git archive --format=zip --output=zadark-firefox-source.zip HEAD
 
       - name: Sign Firefox extension through Mozilla AMO
-        if: github.event_name != 'pull_request'
         run: |
           npx --yes web-ext@8 sign \
             --source-dir=build/firefox \
@@ -57,16 +98,7 @@ jobs:
           WEB_EXT_API_KEY: ${{ secrets.AMO_JWT_ISSUER }}
           WEB_EXT_API_SECRET: ${{ secrets.AMO_JWT_SECRET }}
 
-      - name: Upload Chrome extension
-        uses: actions/upload-artifact@v4
-        with:
-          name: zadark-chrome
-          path: zadark-chrome.zip
-          if-no-files-found: error
-          retention-days: 14
-
       - name: Upload signed Firefox extension
-        if: github.event_name != 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: zadark-firefox-signed

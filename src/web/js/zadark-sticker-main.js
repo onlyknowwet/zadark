@@ -122,8 +122,6 @@
       if (!input || typeof input !== 'object') throw new Error('Sticker details are required.')
       const directEndpoint = 'https://tt-files-wpa.chat.zalo.me/api/message/photo_url?zpw_ver=671&zpw_type=30&nretry=0'
       const groupEndpoint = 'https://tt-files-wpa.chat.zalo.me/api/group/photo_url?zpw_ver=688&zpw_type=30&nretry=0'
-      console.debug('[ZaDarkSticker] send endpoint', { variant: 'direct', endpoint: directEndpoint })
-      console.debug('[ZaDarkSticker] send endpoint', { variant: 'group', endpoint: groupEndpoint })
       if (typeof input.receiverId !== 'string' || !input.receiverId.trim()) throw new Error('Receiver ID is required.')
       const stickerUrl = new URL(String(input.stickerUrl || ''))
       if (stickerUrl.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
@@ -153,20 +151,15 @@
         jcp: JSON.stringify({ pStickerType: 1 }),
         zsource: -1
       }
-      const directPayload = { ...basePayload, clientId, toId: receiverId, ttl: 0 }
-      const directAttempt = postVariant({ variant: 'direct', endpoint: directEndpoint, payload: directPayload, cipher })
-      const groupReceiverId = receiverId.startsWith('g') ? receiverId.slice(1) : receiverId
-      const groupPayload = { ...basePayload, clientId: clientId - 1, grid: groupReceiverId, ttl: 0, visibility: 0 }
-      const groupAttempt = postVariant({ variant: 'group', endpoint: groupEndpoint, payload: groupPayload, cipher })
-      const attempts = await Promise.allSettled([
-        directAttempt,
-        groupAttempt
-      ])
-      const successCount = attempts.filter((attempt) => attempt.status === 'fulfilled').length
-      if (successCount === 2) return { ok: true, message: 'Both sticker variants succeeded.' }
-      if (successCount === 1) return { ok: true, message: 'One sticker variant succeeded.' }
-      const failureMessages = attempts.map((attempt) => attempt.reason && attempt.reason.message ? attempt.reason.message : String(attempt.reason))
-      return { ok: false, message: `Both sticker variants failed. ${failureMessages.join(' ')}` }
+      const isGroup = receiverId.startsWith('g')
+      const variant = isGroup ? 'group' : 'direct'
+      const endpoint = isGroup ? groupEndpoint : directEndpoint
+      const payload = isGroup
+        ? { ...basePayload, clientId, grid: receiverId.slice(1), ttl: 0, visibility: 0 }
+        : { ...basePayload, clientId, toId: receiverId, ttl: 0 }
+      console.debug('[ZaDarkSticker] send endpoint', { variant, endpoint })
+      await postVariant({ variant, endpoint, payload, cipher })
+      return { ok: true, message: `${variant === 'group' ? 'Group' : 'Direct'} sticker succeeded.` }
     } catch (error) {
       const message = error && error.message ? error.message : String(error)
       console.error('[ZaDarkSticker] send failed', { variant: 'overall', error: error || message })

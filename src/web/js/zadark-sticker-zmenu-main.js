@@ -1,7 +1,9 @@
 /* zmenu.zalo.me MAIN-world upload bridge. */
 (function () {
   const UPLOAD_PROTOCOL = 'binary-upload-v3'
+  const RESIZE_THRESHOLD = 1024 * 1024
   const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
+  const MAX_IMAGE_DIMENSION = 512
   const OPENAPI_TOKEN_PATH = '/api/auth/openapi/access_token'
   const OPENAPI_TOKEN_STORAGE_KEY = '@ZaDark:zmenu-openapi-access-token'
   let openApiAccessToken = null
@@ -153,47 +155,64 @@
     return safeFileName(suppliedName || pathName, mimeType)
   }
 
-  const replaceWithWebpExtension = (fileName) => {
+  const replaceFileExtension = (fileName, mimeType) => {
     const baseName = safeFileName(fileName, '').replace(/\.[a-zA-Z0-9]{1,8}$/, '') || 'sticker'
-    return `${baseName}.webp`
+    return `${baseName}.${MIME_EXTENSIONS[mimeType] || 'png'}`
   }
 
-  const convertJpegToWebp = async (blob, fileName) => {
-    if (blob.type !== 'image/jpeg') return { blob, fileName }
+  const encodeImage = async (blob, fileName, outputMimeType, resize) => {
     const objectUrl = URL.createObjectURL(blob)
     const image = new Image()
     try {
       await new Promise((resolve, reject) => {
         image.onload = resolve
-        image.onerror = () => reject(new Error('The JPEG sticker could not be decoded for WebP conversion.'))
+        image.onerror = () => reject(new Error('The sticker image could not be decoded for conversion.'))
         image.src = objectUrl
       })
       const width = image.naturalWidth
       const height = image.naturalHeight
-      if (!width || !height) throw new Error('The JPEG sticker has invalid dimensions.')
+      if (!width || !height) throw new Error('The sticker image has invalid dimensions.')
+      const scale = resize ? Math.min(1, MAX_IMAGE_DIMENSION / width, MAX_IMAGE_DIMENSION / height) : 1
+      const outputWidth = Math.max(1, Math.round(width * scale))
+      const outputHeight = Math.max(1, Math.round(height * scale))
       const canvas = document.createElement('canvas')
-      canvas.width = width
-      canvas.height = height
+      canvas.width = outputWidth
+      canvas.height = outputHeight
       const context = canvas.getContext('2d')
-      if (!context) throw new Error('Could not create a JPEG conversion context.')
-      context.drawImage(image, 0, 0, width, height)
-      const webpBlob = await new Promise((resolve, reject) => {
-        canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not encode the JPEG sticker as WebP.')), 'image/webp', 0.92)
+      if (!context) throw new Error('Could not create an image conversion context.')
+      context.drawImage(image, 0, 0, outputWidth, outputHeight)
+      const outputBlob = await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error('Could not encode the sticker image.')), outputMimeType, 0.92)
       })
-      const webpFileName = replaceWithWebpExtension(fileName)
-      console.debug('[ZaDarkSticker] zmenu MAIN JPEG to WebP conversion', {
-        width,
-        height,
+      if (!outputBlob.size) throw new Error('The converted sticker file is empty.')
+      if (outputBlob.type !== outputMimeType) throw new Error(`Could not encode the sticker image as ${outputMimeType}.`)
+      const outputFileName = replaceFileExtension(fileName, outputMimeType)
+      console.debug('[ZaDarkSticker] zmenu MAIN image conversion', {
+        width: outputWidth,
+        height: outputHeight,
         inputMimeType: blob.type,
-        outputMimeType: webpBlob.type,
+        outputMimeType: outputBlob.type,
         inputSize: blob.size,
-        outputSize: webpBlob.size,
-        fileName: webpFileName
+        outputSize: outputBlob.size,
+        fileName: outputFileName
       })
-      return { blob: webpBlob, fileName: webpFileName }
+      return { blob: outputBlob, fileName: outputFileName }
     } finally {
       URL.revokeObjectURL(objectUrl)
     }
+  }
+
+  const processImage = async (blob, fileName) => {
+    const mimeType = blob.type.toLowerCase()
+    const oversized = blob.size > RESIZE_THRESHOLD
+    if (mimeType === 'image/gif') {
+      if (oversized) throw new Error('GIF images larger than 1 MiB are unsupported.')
+      return { blob, fileName }
+    }
+    if (mimeType === 'image/jpeg') return encodeImage(blob, fileName, 'image/webp', oversized)
+    if (!oversized) return { blob, fileName }
+    const outputMimeType = mimeType === 'image/png' || mimeType === 'image/webp' ? mimeType : 'image/png'
+    return encodeImage(blob, fileName, outputMimeType, true)
   }
 
   const downloadSourceImage = async (sourceUrl) => {
@@ -259,8 +278,7 @@
       }
       if (!blob.size) throw new Error('The sticker file is empty.')
       if (!blob.type || !blob.type.startsWith('image/')) throw new Error('The sticker file must be an image.')
-      if (blob.size > MAX_UPLOAD_SIZE) throw new Error('The sticker image must not exceed 10 MiB.')
-      const converted = await convertJpegToWebp(blob, fileName)
+      const converted = await processImage(blob, fileName)
       blob = converted.blob
       fileName = converted.fileName
       if (!blob.size) throw new Error('The converted sticker file is empty.')

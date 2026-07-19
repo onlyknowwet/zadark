@@ -54,7 +54,9 @@
     try {
       if (typeof browser !== 'undefined') {
         browser.runtime.sendMessage(message).then(done, (error) => {
-          done(resultError(normalizeError(error, 'Could not contact the extension service worker.').message))
+          const normalized = normalizeError(error, 'Could not contact the extension service worker.')
+          console.error('[ZaDarkSticker] chat upload background error', normalized.message)
+          done(resultError(normalized.message))
         })
       } else {
         chrome.runtime.sendMessage(message, (result) => {
@@ -66,6 +68,30 @@
       done(resultError(normalizeError(error).message))
     }
   })
+
+  const uploadMessage = async (payload, sourceType) => {
+    const requestLog = { protocol: UPLOAD_PROTOCOL, sourceType, fileName: payload.fileName }
+    if (sourceType === 'url') requestLog.sourceUrl = payload.sourceUrl
+    console.debug('[ZaDarkSticker] chat -> background upload request', requestLog)
+    try {
+      const result = await runtimeMessage({ action: UPLOAD_ACTION, payload })
+      const normalized = result && typeof result.ok === 'boolean'
+        ? result
+        : resultError('The extension returned a malformed upload result.')
+      console.debug('[ZaDarkSticker] chat <- background upload response', {
+        protocol: UPLOAD_PROTOCOL,
+        sourceType,
+        ok: normalized.ok,
+        message: normalized.message,
+        photoUrl: normalized.photoUrl
+      })
+      return normalized
+    } catch (error) {
+      const normalized = normalizeError(error, 'Sticker upload messaging failed.')
+      console.error('[ZaDarkSticker] chat <- background upload response', normalized.message)
+      return resultError(normalized.message)
+    }
+  }
 
   const readFile = (file) => new Promise((resolve, reject) => {
     if (!(file instanceof File) || !file.size) return reject(new Error('Choose a non-empty sticker file to upload.'))
@@ -151,8 +177,7 @@
       try {
         const dataUrl = await readFile(file)
         console.debug('[ZaDarkSticker] upload dispatch', { protocol: UPLOAD_PROTOCOL, sourceType: 'file' })
-        const result = await runtimeMessage({ action: UPLOAD_ACTION, payload: { protocol: UPLOAD_PROTOCOL, dataUrl, fileName: file.name } })
-        return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
+        return uploadMessage({ protocol: UPLOAD_PROTOCOL, dataUrl, fileName: file.name }, 'file')
       } catch (error) { return resultError(normalizeError(error, 'Sticker upload failed.').message) }
     },
     uploadUrl: async (sourceUrl) => {
@@ -160,11 +185,7 @@
         const url = new URL(String(sourceUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker source URL must use HTTPS.')
         console.debug('[ZaDarkSticker] upload dispatch', { protocol: UPLOAD_PROTOCOL, sourceType: 'url' })
-        const result = await runtimeMessage({
-          action: UPLOAD_ACTION,
-          payload: { protocol: UPLOAD_PROTOCOL, sourceUrl: url.href, fileName: fileNameFromUrl(url) }
-        })
-        return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
+        return uploadMessage({ protocol: UPLOAD_PROTOCOL, sourceUrl: url.href, fileName: fileNameFromUrl(url) }, 'url')
       } catch (error) { return resultError(normalizeError(error, 'Sticker URL upload failed.').message) }
     },
     send: async (input) => {

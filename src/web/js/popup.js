@@ -189,6 +189,30 @@ const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
   reader.readAsDataURL(file)
 })
 
+const sendStickerUploadMessage = async (payload, sourceType) => {
+  const requestLog = { protocol: stickerUploadProtocol, sourceType, fileName: payload.fileName }
+  if (sourceType === 'url') requestLog.sourceUrl = payload.sourceUrl
+  console.debug('[ZaDarkSticker] popup -> background upload request', requestLog)
+  try {
+    const result = await ZaDarkBrowser.sendMessage({ action: '@ZaDark:Sticker:Upload', payload })
+    const normalized = result && typeof result.ok === 'boolean'
+      ? result
+      : { ok: false, message: 'The extension returned a malformed upload result.' }
+    console.debug('[ZaDarkSticker] popup <- background upload response', {
+      protocol: stickerUploadProtocol,
+      sourceType,
+      ok: normalized.ok,
+      message: normalized.message,
+      photoUrl: normalized.photoUrl
+    })
+    return normalized
+  } catch (error) {
+    const normalized = normalizeError(error, 'Extension upload messaging failed.')
+    console.error('[ZaDarkSticker] popup <- background upload response', normalized.message)
+    return { ok: false, message: normalized.message }
+  }
+}
+
 const uploadStickerFile = async (file) => {
   if (stickerBusy) return
 
@@ -207,10 +231,7 @@ const uploadStickerFile = async (file) => {
   try {
     const dataUrl = await readFileAsDataUrl(file)
     console.debug('[ZaDarkSticker] popup upload dispatch', { protocol: stickerUploadProtocol, sourceType: 'file' })
-    const result = await ZaDarkBrowser.sendMessage({
-      action: '@ZaDark:Sticker:Upload',
-      payload: { protocol: stickerUploadProtocol, dataUrl, fileName: file.name }
-    })
+    const result = await sendStickerUploadMessage({ protocol: stickerUploadProtocol, dataUrl, fileName: file.name }, 'file')
 
     if (!result || !result.ok || !result.photoUrl) {
       setStickerStatus((result && result.message) || 'Không thể tải ảnh lên.', 'error')
@@ -261,10 +282,11 @@ const sendSticker = async () => {
     if (sendUrl !== trustedStickerUrl) {
       setStickerStatus('Đang tải ảnh lên…', 'loading')
       console.debug('[ZaDarkSticker] popup upload dispatch', { protocol: stickerUploadProtocol, sourceType: 'url' })
-      const uploadResult = await ZaDarkBrowser.sendMessage({
-        action: '@ZaDark:Sticker:Upload',
-        payload: { protocol: stickerUploadProtocol, sourceUrl: sendUrl, fileName: fileNameFromUrl(sendUrl) }
-      })
+      const uploadResult = await sendStickerUploadMessage({
+        protocol: stickerUploadProtocol,
+        sourceUrl: sendUrl,
+        fileName: fileNameFromUrl(sendUrl)
+      }, 'url')
       if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
         const message = uploadResult && typeof uploadResult.message === 'string' ? uploadResult.message : 'Không thể tải ảnh lên.'
         setStickerStatus(message, 'error')

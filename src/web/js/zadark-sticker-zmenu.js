@@ -4,6 +4,9 @@
   const CAPABILITIES_ACTION = '@ZaDark:Sticker:UploadCapabilities'
   const resultError = (message) => ({ ok: false, message })
   const sourceTypeFor = (payload) => payload && typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+  const normalizeError = (error, fallback) => error && typeof error.message === 'string' && error.message
+    ? error.message
+    : typeof error === 'string' && error ? error : fallback
   const relayUpload = (request) => new Promise((resolve) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
     let timer
@@ -16,7 +19,12 @@
       const normalized = result && typeof result.ok === 'boolean'
         ? result
         : resultError('The zmenu page returned a malformed upload result.')
-      console.debug('[ZaDarkSticker] zmenu relay result', { id, ok: normalized.ok, message: normalized.message })
+      console.debug('[ZaDarkSticker] zmenu relay <- MAIN upload response', {
+        id,
+        ok: normalized.ok,
+        message: normalized.message,
+        photoUrl: normalized.photoUrl
+      })
       resolve(normalized)
     }
     const onResult = (event) => {
@@ -26,19 +34,32 @@
     }
     document.addEventListener('@ZaDark:Sticker:UploadResult', onResult)
     timer = setTimeout(() => finish({ ok: false, message: 'Uploading timed out and completion is unknown. Check the sticker URL before retrying to avoid uploading twice.' }), 30000)
-    console.debug('[ZaDarkSticker] zmenu relay request', {
+    const requestLog = {
       id,
       protocol: request.payload && request.payload.protocol,
-      sourceType: sourceTypeFor(request.payload)
-    })
-    document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadRequest', { detail: JSON.stringify({ id, payload: request.payload }) }))
+      sourceType: sourceTypeFor(request.payload),
+      fileName: request.payload && request.payload.fileName
+    }
+    if (requestLog.sourceType === 'url') requestLog.sourceUrl = request.payload && request.payload.sourceUrl
+    console.debug('[ZaDarkSticker] zmenu relay -> MAIN upload request', requestLog)
+    try {
+      document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadRequest', { detail: JSON.stringify({ id, payload: request.payload }) }))
+    } catch (error) {
+      const message = normalizeError(error, 'Could not dispatch the upload request to the zmenu page.')
+      console.error('[ZaDarkSticker] zmenu relay -> MAIN upload error', message)
+      finish(resultError(message))
+    }
   })
 
   if (typeof browser !== 'undefined') {
     browser.runtime.onMessage.addListener((request) => {
       if (request && request.action === CAPABILITIES_ACTION) return Promise.resolve({ protocol: UPLOAD_PROTOCOL })
       if (!request || request.action !== '@ZaDark:Sticker:UploadInTab') return false
-      return relayUpload(request)
+      return relayUpload(request).catch((error) => {
+        const message = normalizeError(error, 'The zmenu upload relay failed.')
+        console.error('[ZaDarkSticker] zmenu relay upload error', message)
+        return resultError(message)
+      })
     })
   } else {
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -47,7 +68,11 @@
         return false
       }
       if (!request || request.action !== '@ZaDark:Sticker:UploadInTab') return false
-      relayUpload(request).then(sendResponse)
+      relayUpload(request).then(sendResponse).catch((error) => {
+        const message = normalizeError(error, 'The zmenu upload relay failed.')
+        console.error('[ZaDarkSticker] zmenu relay upload error', message)
+        sendResponse(resultError(message))
+      })
       return true
     })
   }

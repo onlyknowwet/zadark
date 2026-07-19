@@ -44,13 +44,33 @@ const rankZmenuTabs = (tabs) => tabs.slice().sort((a, b) => {
 })
 
 const sendMessageToZmenuTab = (tabId, message) => new Promise((resolve) => {
-  chrome.tabs.sendMessage(tabId, message, (result) => {
-    if (chrome.runtime.lastError) {
-      resolve(null)
-      return
-    }
-    resolve(result)
-  })
+  try {
+    chrome.tabs.sendMessage(tabId, message, (result) => {
+      const error = chrome.runtime.lastError
+      if (error) {
+        resolve({ ok: false, message: normalizeError(error, 'Could not message the zmenu tab.').message })
+        return
+      }
+      resolve({ ok: true, result })
+    })
+  } catch (error) {
+    resolve({ ok: false, message: normalizeError(error, 'Could not message the zmenu tab.').message })
+  }
+})
+
+const queryZmenuTabs = () => new Promise((resolve) => {
+  try {
+    chrome.tabs.query({ url: 'https://zmenu.zalo.me/*' }, (tabs) => {
+      const error = chrome.runtime.lastError
+      if (error) {
+        resolve({ ok: false, message: normalizeError(error, 'Could not query zmenu tabs.').message })
+        return
+      }
+      resolve({ ok: true, tabs: Array.isArray(tabs) ? tabs : [] })
+    })
+  } catch (error) {
+    resolve({ ok: false, message: normalizeError(error, 'Could not query zmenu tabs.').message })
+  }
 })
 
 const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
@@ -64,8 +84,14 @@ const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
   let selectedTab
   for (const tab of candidates) {
     if (typeof tab.id !== 'number') continue
-    const capabilities = await sendMessageToZmenuTab(tab.id, { action: STICKER_UPLOAD_CAPABILITIES })
-    if (capabilities && capabilities.protocol === STICKER_UPLOAD_PROTOCOL) {
+    console.debug('[ZaDarkSticker] background -> zmenu capability request', { tabId: tab.id })
+    const probe = await sendMessageToZmenuTab(tab.id, { action: STICKER_UPLOAD_CAPABILITIES })
+    console.debug('[ZaDarkSticker] background <- zmenu capability response', {
+      tabId: tab.id,
+      protocol: probe.ok && probe.result && probe.result.protocol,
+      error: probe.ok ? undefined : probe.message
+    })
+    if (probe.ok && probe.result && probe.result.protocol === STICKER_UPLOAD_PROTOCOL) {
       selectedTab = tab
       break
     }
@@ -76,11 +102,15 @@ const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
     return result
   }
   console.debug('[ZaDarkSticker] upload selected tab', { tabId: selectedTab.id, protocol: STICKER_UPLOAD_PROTOCOL })
-  const result = await sendMessageToZmenuTab(selectedTab.id, { action: '@ZaDark:Sticker:UploadInTab', payload })
-  const normalized = result === null
-    ? { ok: false, message: 'Could not contact the selected compatible zmenu tab. Reload it and try again.' }
-    : result && typeof result.ok === 'boolean' ? result : malformedUploadResult
-  console.debug('[ZaDarkSticker] upload result', { ok: normalized.ok, message: normalized.message })
+  const sourceType = typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+  const requestLog = { tabId: selectedTab.id, protocol: payload.protocol, sourceType, fileName: payload.fileName }
+  if (sourceType === 'url') requestLog.sourceUrl = payload.sourceUrl
+  console.debug('[ZaDarkSticker] background -> zmenu upload request', requestLog)
+  const delivery = await sendMessageToZmenuTab(selectedTab.id, { action: '@ZaDark:Sticker:UploadInTab', payload })
+  const normalized = !delivery.ok
+    ? { ok: false, message: delivery.message }
+    : delivery.result && typeof delivery.result.ok === 'boolean' ? delivery.result : malformedUploadResult
+  console.debug('[ZaDarkSticker] background <- zmenu upload response', { tabId: selectedTab.id, ok: normalized.ok, message: normalized.message, photoUrl: normalized.photoUrl })
   return normalized
 }
 
@@ -167,19 +197,23 @@ chrome.runtime.onMessage.addListener(
     }
 
     if (action === MSG_ACTIONS.UPLOAD_STICKER) {
-      chrome.tabs.query({ url: 'https://zmenu.zalo.me/*' }, (tabs) => {
-        const error = chrome.runtime.lastError
-        if (error) {
-          const result = { ok: false, message: 'Could not query zmenu tabs. Reload zmenu and try again.' }
-          console.error('[ZaDarkSticker] upload error:', result.message)
-          sendResponse(result)
-          return
-        }
-        uploadWithCompatibleZmenuTab(tabs, payload).then(sendResponse).catch((uploadError) => {
+      const sourceType = payload && typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+      console.debug('[ZaDarkSticker] background upload request', { protocol: payload && payload.protocol, sourceType })
+      queryZmenuTabs().then((queryResult) => {
+        console.debug('[ZaDarkSticker] background zmenu tabs response', {
+          ok: queryResult.ok,
+          candidateCount: queryResult.tabs ? queryResult.tabs.length : 0,
+          message: queryResult.message
+        })
+        if (!queryResult.ok) return { ok: false, message: queryResult.message }
+        return uploadWithCompatibleZmenuTab(queryResult.tabs, payload || {})
+      }).then((result) => {
+        console.debug('[ZaDarkSticker] background upload response', { ok: result.ok, message: result.message, photoUrl: result.photoUrl })
+        sendResponse(result)
+      }).catch((uploadError) => {
           const message = normalizeError(uploadError, 'Could not contact a compatible zmenu tab.').message
           console.error('[ZaDarkSticker] upload error:', message)
           sendResponse({ ok: false, message })
-        })
       })
       return true
     }

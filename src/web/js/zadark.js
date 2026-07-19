@@ -893,7 +893,9 @@
     })
 
     document.addEventListener('@ZaDark:CONV_ID_CHANGE', function () {
-      console.debug('[ZaDark] Conversation changed')
+      console.debug('[ZaDark] Conversation changed', {
+        conversationId: ZaDarkUtils.getCurrentConvId()
+      })
       loadThreadChatBg().catch((error) => logAsyncError('Conversation background load failed', error))
     })
   }

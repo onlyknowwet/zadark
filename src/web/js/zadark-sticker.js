@@ -23,15 +23,24 @@
       if (!response || response.id !== id) return
       clearTimeout(timer)
       document.removeEventListener(RESPONSE_EVENT, onResult)
-      resolve(response.result && typeof response.result.ok === 'boolean'
+      const result = response.result && typeof response.result.ok === 'boolean'
         ? response.result
-        : resultError('Zalo returned a malformed sticker result.'))
+        : resultError('Zalo returned a malformed sticker result.')
+      console.debug('[ZaDarkSticker] MAIN send result received', { id, ok: result.ok, message: result.message })
+      resolve(result)
     }
     document.addEventListener(RESPONSE_EVENT, onResult)
     timer = setTimeout(() => {
       document.removeEventListener(RESPONSE_EVENT, onResult)
+      console.error('[ZaDarkSticker] MAIN send request timed out', { id })
       resolve(resultError('Sending timed out and completion is unknown. Check the conversation before retrying to avoid sending the sticker twice.'))
     }, TIMEOUT)
+    console.debug('[ZaDarkSticker] dispatching MAIN send request', {
+      id,
+      mode: payload.mode,
+      receiverId: payload.receiverId,
+      stickerUrl: payload.stickerUrl
+    })
     document.dispatchEvent(new CustomEvent(REQUEST_EVENT, {
       detail: JSON.stringify({ id, payload })
     }))

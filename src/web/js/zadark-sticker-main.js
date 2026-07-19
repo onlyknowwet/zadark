@@ -49,6 +49,9 @@
   const send = async (input) => {
     try {
       if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
+      const path = input.mode === 'direct' ? '/api/message/forward' : '/api/group/forward'
+      const endpoint = `https://tt-files-wpa.chat.zalo.me${path}?zpw_ver=671&zpw_type=30&nretry=0`
+      console.debug('[ZaDarkSticker] send endpoint', endpoint)
       if (typeof input.receiverId !== 'string' || !input.receiverId.trim()) throw new Error('Receiver ID is required.')
       const stickerUrl = new URL(String(input.stickerUrl || ''))
       if (stickerUrl.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
@@ -88,9 +91,6 @@
         }),
         decorLog: JSON.stringify({ fw: { pmsg: { st: 1, ts: 1, id: referenceId }, rmsg: { st: 1, ts: 1, id: referenceId }, fwLvl: 12 } })
       }
-      const path = input.mode === 'direct' ? '/api/message/forward' : '/api/group/forward'
-      const endpoint = `https://tt-files-wpa.chat.zalo.me${path}?zpw_ver=671&zpw_type=30&nretry=0`
-      console.debug('[ZaDarkSticker] send endpoint', endpoint)
       console.debug('[ZaDarkSticker] send request (decrypted)', payload)
       const params = await cipher.encrypt(payload)
       const response = await fetch(endpoint, {
@@ -99,12 +99,25 @@
       await logSendResponse(response, cipher)
       if (!response.ok) throw new Error(`Request failed: ${response.status}`)
       return { ok: true, message: 'Sticker sent.' }
-    } catch (error) { return { ok: false, message: error.message || String(error) } }
+    } catch (error) {
+      const message = error && error.message ? error.message : String(error)
+      console.error('[ZaDarkSticker] send failed', error || message)
+      return { ok: false, message }
+    }
   }
   document.addEventListener(REQUEST_EVENT, async (event) => {
     let request
-    try { request = JSON.parse(event.detail) } catch (_) { return }
-    if (!request || typeof request.id !== 'string') return
+    try {
+      request = JSON.parse(event.detail)
+    } catch (error) {
+      console.error('[ZaDarkSticker] MAIN send request contains invalid JSON', error)
+      return
+    }
+    if (!request || typeof request.id !== 'string') {
+      console.error('[ZaDarkSticker] MAIN send request is missing a valid id')
+      return
+    }
+    console.debug('[ZaDarkSticker] MAIN send request received', { id: request.id, payload: request.payload })
     const result = await send(request.payload || {})
     document.dispatchEvent(new CustomEvent(RESPONSE_EVENT, { detail: JSON.stringify({ id: request.id, result }) }))
   })

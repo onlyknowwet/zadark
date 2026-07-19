@@ -38,7 +38,6 @@
     }, TIMEOUT)
     console.debug('[ZaDarkSticker] dispatching MAIN send request', {
       id,
-      mode: payload.mode,
       receiverId: payload.receiverId,
       stickerUrl: payload.stickerUrl
     })
@@ -170,12 +169,12 @@
     },
     send: async (input) => {
       try {
-        if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
+        if (!input || typeof input !== 'object') throw new Error('Sticker details are required.')
         const receiverId = getConversationIdForSend()
         if (!receiverId || !receiverId.trim()) throw new Error('Select a Zalo conversation before sending a sticker.')
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
-        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, mode: input.mode, width: 512, height: 512 })
+        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, width: 512, height: 512 })
       } catch (error) { return resultError(normalizeError(error, 'Sticker send failed.').message) }
     }
   }
@@ -183,8 +182,7 @@
   const handleSendInTab = (request) => {
     if (!request || request.action !== '@ZaDark:Sticker:SendInTab') return null
     const payload = request.payload
-    const mode = payload && typeof payload === 'object' ? payload.mode : undefined
-    console.debug('[ZaDarkSticker] chat listener received', { action: request.action, mode })
+    console.debug('[ZaDarkSticker] chat listener received', { action: request.action })
     if (!payload || typeof payload !== 'object') {
       console.error('[ZaDarkSticker] chat listener error: The popup supplied malformed sticker details.')
       return Promise.resolve(resultError('The popup supplied malformed sticker details.'))
@@ -193,7 +191,7 @@
       const normalized = result && typeof result.ok === 'boolean' && typeof result.message === 'string'
         ? result
         : resultError('The chat sticker sender returned a malformed result.')
-      console.debug('[ZaDarkSticker] chat listener result', { action: request.action, mode: payload.mode, ok: normalized.ok })
+      console.debug('[ZaDarkSticker] chat listener result', { action: request.action, ok: normalized.ok })
       if (!normalized.ok) console.error('[ZaDarkSticker] chat listener error:', normalized.message)
       return normalized
     }, (error) => {

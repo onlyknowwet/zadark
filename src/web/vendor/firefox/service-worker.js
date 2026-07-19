@@ -25,7 +25,6 @@ const normalizeError = (error, fallback) => {
 
 const validateSendPayload = (payload) => {
   if (!payload || typeof payload !== 'object') return 'The popup supplied malformed sticker details.'
-  if (payload.mode !== 'direct' && payload.mode !== 'group') return 'Sticker mode must be direct or group.'
   if (typeof payload.stickerUrl !== 'string' || !payload.stickerUrl.trim()) return 'Sticker URL is required.'
   try {
     if (new URL(String(payload.stickerUrl || '')).protocol !== 'https:') return 'Sticker URL must use HTTPS.'
@@ -134,11 +133,11 @@ browser.runtime.onMessage.addListener(
       }
       return browser.tabs.query({ active: true, currentWindow: true, url: 'https://chat.zalo.me/*' }).then((tabs) => {
         const tabCount = tabs.length
-        console.debug('[ZaDarkSticker] background active tabs', { action, mode: payload.mode, tabCount })
+        console.debug('[ZaDarkSticker] background active tabs', { action, tabCount })
         if (tabCount !== 1 || typeof tabs[0].id !== 'number') return { ok: false, message: 'No active Zalo chat tab found. Open chat.zalo.me in the current window and try again.' }
         return browser.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:SendInTab', payload }).then(normalizeSendResult)
       }).then((result) => {
-        console.debug('[ZaDarkSticker] background result', { action, mode: payload.mode, ok: result.ok })
+        console.debug('[ZaDarkSticker] background result', { action, ok: result.ok })
         if (!result.ok) console.error('[ZaDarkSticker] background error:', result.message)
         return result
       }).catch((error) => {

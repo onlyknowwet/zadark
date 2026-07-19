@@ -43,7 +43,6 @@ const stickerPanelElName = '.zadark-sticker-panel'
 const stickerDropzoneElName = '#js-sticker-dropzone'
 const stickerFileInputElName = '#js-sticker-file'
 const stickerUrlInputElName = '#js-sticker-url'
-const stickerModeInputElName = 'input:radio[name="sticker-mode"]'
 const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
@@ -250,7 +249,6 @@ const sendSticker = async () => {
   if (stickerBusy) return
 
   const stickerUrl = $(stickerUrlInputElName).val().trim()
-  const mode = $(stickerModeInputElName).filter(':checked').val()
   if (!isHttpsUrl(stickerUrl)) {
     setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
     $(stickerUrlInputElName).trigger('focus')
@@ -277,13 +275,13 @@ const sendSticker = async () => {
       $(stickerUrlInputElName).val(sendUrl)
     }
     setStickerStatus('Đang gửi sticker…', 'loading')
-    console.debug('[ZaDarkSticker] popup request', { action: '@ZaDark:Sticker:SendInCurrentTab', mode })
+    console.debug('[ZaDarkSticker] popup request', { action: '@ZaDark:Sticker:SendInCurrentTab' })
     const result = await ZaDarkBrowser.sendMessage({
       action: '@ZaDark:Sticker:SendInCurrentTab',
-      payload: { stickerUrl: sendUrl, mode }
+      payload: { stickerUrl: sendUrl }
     })
     const ok = !!(result && result.ok)
-    console.debug('[ZaDarkSticker] popup result', { action: '@ZaDark:Sticker:SendInCurrentTab', mode, ok })
+    console.debug('[ZaDarkSticker] popup result', { action: '@ZaDark:Sticker:SendInCurrentTab', ok })
     if (!result || !result.ok) {
       const message = result && typeof result.message === 'string' ? result.message : 'Không thể gửi sticker.'
       console.error('[ZaDarkSticker] popup error:', message)

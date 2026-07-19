@@ -135,33 +135,6 @@ body {
   }
 }
 
-.zadark-sticker-mode {
-  display: flex;
-  gap: 12px;
-  margin: 10px 0 0;
-  padding: 8px 0 0;
-  border: 0;
-  border-top: 1px solid var(--zadark-border-light);
-  color: var(--zadark-neutral-400);
-  font-size: 12px;
-
-  legend {
-    padding: 0;
-    margin-bottom: 4px;
-    color: var(--zadark-neutral-500);
-    font-size: 11px;
-  }
-
-  label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    cursor: pointer;
-  }
-
-  input { accent-color: var(--zadark-blue-base); }
-}
-
 .zadark-sticker-note {
   margin: 9px 0 0;
   color: var(--zadark-neutral-500);

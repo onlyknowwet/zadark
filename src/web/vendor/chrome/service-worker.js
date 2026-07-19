@@ -25,7 +25,6 @@ const normalizeError = (error, fallback) => {
 
 const validateSendPayload = (payload) => {
   if (!payload || typeof payload !== 'object') return 'The popup supplied malformed sticker details.'
-  if (payload.mode !== 'direct' && payload.mode !== 'group') return 'Sticker mode must be direct or group.'
   if (typeof payload.stickerUrl !== 'string' || !payload.stickerUrl.trim()) return 'Sticker URL is required.'
   try {
     if (new URL(String(payload.stickerUrl || '')).protocol !== 'https:') return 'Sticker URL must use HTTPS.'
@@ -145,7 +144,7 @@ chrome.runtime.onMessage.addListener(
       chrome.tabs.query({ active: true, currentWindow: true, url: 'https://chat.zalo.me/*' }, (tabs) => {
         const queryError = chrome.runtime.lastError
         const tabCount = Array.isArray(tabs) ? tabs.length : 0
-        console.debug('[ZaDarkSticker] background active tabs', { action, mode: payload.mode, tabCount })
+        console.debug('[ZaDarkSticker] background active tabs', { action, tabCount })
         if (queryError || tabCount !== 1 || typeof tabs[0].id !== 'number') {
           const message = queryError
             ? normalizeError(queryError.message, 'Could not query the active Zalo chat tab.').message
@@ -159,7 +158,7 @@ chrome.runtime.onMessage.addListener(
           const normalized = error
             ? { ok: false, message: 'Could not contact the active Zalo chat tab. Reload it and try again.' }
             : normalizeSendResult(result)
-          console.debug('[ZaDarkSticker] background result', { action, mode: payload.mode, ok: normalized.ok })
+          console.debug('[ZaDarkSticker] background result', { action, ok: normalized.ok })
           if (!normalized.ok) console.error('[ZaDarkSticker] background error:', normalized.message)
           sendResponse(normalized)
         })

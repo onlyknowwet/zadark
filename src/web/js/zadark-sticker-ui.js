@@ -28,12 +28,6 @@
           <input id="js-zadark-sticker-url" class="zadark-input" type="url" inputmode="url" placeholder="https://example.com/anh.png" autocomplete="off" />
         </label>
 
-        <fieldset id="js-zadark-sticker-mode" class="zadark-sticker-mode" aria-describedby="js-zadark-sticker-status">
-          <legend>Loại cuộc trò chuyện</legend>
-          <label><input type="radio" name="sticker-mode" value="direct" /> Cá nhân</label>
-          <label><input type="radio" name="sticker-mode" value="group" /> Nhóm</label>
-        </fieldset>
-
         <p class="zadark-sticker-note">Tải ảnh từ máy cần một tab <a href="https://zmenu.zalo.me" target="_blank" rel="noopener noreferrer">zmenu.zalo.me</a> đang mở và đã đăng nhập.</p>
         <div id="js-zadark-sticker-status" class="zadark-sticker-status" role="status" aria-live="polite"></div>
         <button id="js-zadark-sticker-send" class="zadark-sticker-send" type="button">Gửi sticker</button>
@@ -55,9 +49,6 @@
     getElement('js-zadark-sticker-send').disabled = busy
     getElement('js-zadark-sticker-url').disabled = busy
     getElement('js-zadark-sticker-file').disabled = busy
-    document.querySelectorAll('#js-zadark-sticker-mode input[type="radio"]').forEach((input) => {
-      input.disabled = busy
-    })
     const dropzoneEl = getElement('js-zadark-sticker-dropzone')
     dropzoneEl.setAttribute('aria-disabled', busy ? 'true' : 'false')
     dropzoneEl.classList.toggle('zadark-sticker-dropzone--busy', busy)
@@ -108,16 +99,8 @@
   const sendSticker = async () => {
     if (stickerBusy) return
     const urlEl = getElement('js-zadark-sticker-url')
-    const modeInputs = document.querySelectorAll('#js-zadark-sticker-mode input[type="radio"]')
     const stickerUrl = urlEl.value.trim()
-    const selectedMode = Array.from(modeInputs).find((input) => input.checked)
-    const mode = selectedMode && selectedMode.value
 
-    if (!mode) {
-      setStickerStatus('Vui lòng chọn Cá nhân hoặc Nhóm trước khi gửi.', 'error')
-      modeInputs[0].focus()
-      return
-    }
     if (!isHttpsImageUrl(stickerUrl)) {
       setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
       urlEl.focus()
@@ -143,7 +126,7 @@
         urlEl.value = sendUrl
       }
       setStickerStatus('Đang gửi sticker…', 'loading')
-      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl, mode })
+      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl })
       if (!result || !result.ok) {
         setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
         return

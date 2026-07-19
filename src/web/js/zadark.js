@@ -22,6 +22,14 @@
   const inputThreadChatBgElName = '#js-input-thread-chat-bg'
   const buttonDelThreadChatBgElName = '#js-button-del-thread-chat-bg'
 
+  const stickerPanelElName = '#js-zadark-sticker-panel'
+  const stickerDropzoneElName = '#js-zadark-sticker-dropzone'
+  const stickerFileInputElName = '#js-zadark-sticker-file'
+  const stickerUrlInputElName = '#js-zadark-sticker-url'
+  const stickerModeInputElName = '#js-zadark-sticker-mode input:radio[name="sticker-mode"]'
+  const stickerStatusElName = '#js-zadark-sticker-status'
+  const stickerSendButtonElName = '#js-zadark-sticker-send'
+
   const switchHideLatestMessageElName = '#js-switch-hide-latest-message'
   const switchHideConvAvatarElName = '#js-switch-hide-conv-avatar'
   const switchHideConvNameElName = '#js-switch-hide-conv-name'
@@ -356,6 +364,39 @@
           </div>
         </div>
       </div>
+
+      <section id="js-zadark-sticker-panel" class="zadark-panel zadark-sticker-panel" aria-labelledby="zadark-sticker-title">
+        <div class="zadark-panel__body">
+          <div class="zadark-sticker-panel__heading">
+            <div>
+              <h2 id="zadark-sticker-title">Gửi sticker ảnh</h2>
+              <p>Dùng ảnh từ máy hoặc dán URL HTTPS.</p>
+            </div>
+          </div>
+
+          <div id="js-zadark-sticker-dropzone" class="zadark-sticker-dropzone" role="button" tabindex="0" aria-controls="js-zadark-sticker-file">
+            <input id="js-zadark-sticker-file" class="zadark-sticker-dropzone__input" type="file" accept="image/*" />
+            <span class="zadark-sticker-dropzone__icon" aria-hidden="true">↑</span>
+            <span><strong>Kéo thả ảnh vào đây</strong> hoặc <span class="zadark-sticker-dropzone__link">chọn tệp</span></span>
+            <small>JPG, PNG, GIF hoặc WebP · tối đa 10MB</small>
+          </div>
+
+          <label class="zadark-sticker-field" for="js-zadark-sticker-url">
+            <span>URL ảnh</span>
+            <input id="js-zadark-sticker-url" class="zadark-input" type="url" inputmode="url" placeholder="https://example.com/anh.png" autocomplete="off" />
+          </label>
+
+          <fieldset id="js-zadark-sticker-mode" class="zadark-sticker-mode" aria-describedby="js-zadark-sticker-status">
+            <legend>Loại cuộc trò chuyện</legend>
+            <label><input type="radio" name="sticker-mode" value="direct" /> Cá nhân</label>
+            <label><input type="radio" name="sticker-mode" value="group" /> Nhóm</label>
+          </fieldset>
+
+          <p class="zadark-sticker-note">Tải ảnh từ máy cần một tab <a href="https://zmenu.zalo.me" target="_blank" rel="noopener noreferrer">zmenu.zalo.me</a> đang mở và đã đăng nhập.</p>
+          <div id="js-zadark-sticker-status" class="zadark-sticker-status" role="status" aria-live="polite"></div>
+          <button id="js-zadark-sticker-send" class="zadark-sticker-send" type="button">Gửi sticker</button>
+        </div>
+      </section>
     </div>
   `
 
@@ -661,6 +702,154 @@
     }
   }
 
+  const STICKER_MAX_FILE_SIZE = 10 * 1024 * 1024
+  let stickerBusy = false
+
+  const setStickerStatus = (message = '', state = '') => {
+    const statusEl = document.querySelector(stickerStatusElName)
+    if (!statusEl) return
+    statusEl.textContent = message
+    statusEl.setAttribute('data-state', state)
+  }
+
+  const setStickerBusy = (busy) => {
+    stickerBusy = busy
+    $(stickerSendButtonElName).prop('disabled', busy)
+    $(stickerUrlInputElName).prop('disabled', busy)
+    $(stickerFileInputElName).prop('disabled', busy)
+    $(stickerModeInputElName).prop('disabled', busy)
+    $(stickerDropzoneElName).attr('aria-disabled', busy ? 'true' : 'false')
+    $(stickerDropzoneElName).toggleClass('zadark-sticker-dropzone--busy', busy)
+    $(stickerPanelElName).toggleClass('zadark-sticker-panel--busy', busy)
+  }
+
+  const isValidStickerFile = (file) => {
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      setStickerStatus('Vui lòng chọn một tệp hình ảnh.', 'error')
+      return false
+    }
+
+    if (file.size > STICKER_MAX_FILE_SIZE) {
+      setStickerStatus('Dung lượng ảnh tối đa là 10MB.', 'error')
+      return false
+    }
+
+    return true
+  }
+
+  const uploadStickerFile = async (file) => {
+    if (stickerBusy) return
+    if (!isValidStickerFile(file)) return
+
+    setStickerBusy(true)
+    setStickerStatus('Đang tải ảnh lên…', 'loading')
+
+    try {
+      const result = await ZaDarkSticker.upload(file)
+      if (!result || !result.ok || !result.photoUrl) {
+        setStickerStatus((result && result.message) || 'Không thể tải ảnh lên.', 'error')
+        return
+      }
+
+      $(stickerUrlInputElName).val(result.photoUrl)
+      setStickerStatus('Đã tải ảnh. Kiểm tra URL rồi nhấn “Gửi sticker”.', 'success')
+    } catch (error) {
+      setStickerStatus(error.message || 'Không thể tải ảnh lên.', 'error')
+    } finally {
+      setStickerBusy(false)
+    }
+  }
+
+  const isHttpsImageUrl = (value) => {
+    try {
+      const url = new URL(value)
+      return url.protocol === 'https:' && !!url.hostname
+    } catch (_) {
+      return false
+    }
+  }
+
+  const sendSticker = async () => {
+    if (stickerBusy) return
+    const stickerUrl = $(stickerUrlInputElName).val().trim()
+    const mode = $(stickerModeInputElName).filter(':checked').val()
+
+    if (!mode) {
+      setStickerStatus('Vui lòng chọn Cá nhân hoặc Nhóm trước khi gửi.', 'error')
+      $(stickerModeInputElName).first().trigger('focus')
+      return
+    }
+
+    if (!isHttpsImageUrl(stickerUrl)) {
+      setStickerStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
+      $(stickerUrlInputElName).trigger('focus')
+      return
+    }
+
+    if (!ZaDarkUtils.getCurrentConvId()) {
+      setStickerStatus('Hãy mở một cuộc trò chuyện trước khi gửi.', 'error')
+      return
+    }
+
+    setStickerBusy(true)
+    setStickerStatus('Đang gửi sticker…', 'loading')
+
+    try {
+      const result = await ZaDarkSticker.send({ stickerUrl, mode })
+      if (!result || !result.ok) {
+        setStickerStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
+        return
+      }
+      setStickerStatus('Đã gửi sticker.', 'success')
+    } catch (error) {
+      setStickerStatus(error.message || 'Không thể gửi sticker.', 'error')
+    } finally {
+      setStickerBusy(false)
+    }
+  }
+
+  const loadStickerPanel = () => {
+    const dropzoneEl = document.querySelector(stickerDropzoneElName)
+    const fileInputEl = document.querySelector(stickerFileInputElName)
+    if (!dropzoneEl || !fileInputEl) return
+
+    fileInputEl.addEventListener('change', () => {
+      uploadStickerFile(fileInputEl.files[0])
+      fileInputEl.value = ''
+    })
+
+    dropzoneEl.addEventListener('click', (event) => {
+      if (event.target !== fileInputEl) fileInputEl.click()
+    })
+
+    dropzoneEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      fileInputEl.click()
+    })
+
+    $(stickerUrlInputElName).on('keydown', (event) => {
+      if (event.key === 'Enter') sendSticker()
+    })
+
+    const dragEnterEvents = ['dragenter', 'dragover']
+    dragEnterEvents.forEach((eventName) => {
+      dropzoneEl.addEventListener(eventName, (event) => {
+        event.preventDefault()
+        dropzoneEl.classList.add('zadark-sticker-dropzone--active')
+      })
+    })
+    const dragLeaveEvents = ['dragleave', 'drop']
+    dragLeaveEvents.forEach((eventName) => {
+      dropzoneEl.addEventListener(eventName, (event) => {
+        event.preventDefault()
+        dropzoneEl.classList.remove('zadark-sticker-dropzone--active')
+      })
+    })
+    dropzoneEl.addEventListener('drop', (event) => uploadStickerFile(event.dataTransfer.files[0]))
+    $(stickerSendButtonElName).on('click', sendSticker)
+  }
+
   const setZaDarkPopupVisible = (buttonEl, popupEl, visible = true) => {
     if (visible) {
       buttonEl.classList.add('selected')
@@ -848,6 +1037,7 @@
     loadKnownVersionState(buttonEl)
     loadPopupScrollEvent()
     loadTranslate()
+    loadStickerPanel()
 
     ZaDarkUtils.initTippy()
 

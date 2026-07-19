@@ -31,6 +31,7 @@
         "js/browser.min.js",
         "js/zadark-translate.min.js",
         "js/utils.min.js",
+        "js/zadark-sticker.min.js",
         "js/zadark.min.js"
       ]
     },
@@ -44,6 +45,23 @@
         "js/zadark-zconv.min.js",
         "js/zadark-reaction.min.js"
       ]
+    },
+    {
+      "matches": ["*://chat.zalo.me/*"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "js": ["js/zadark-sticker-main.min.js"]
+    },
+    {
+      "matches": ["https://zmenu.zalo.me/*"],
+      "run_at": "document_end",
+      "js": ["js/zadark-sticker-zmenu.min.js"]
+    },
+    {
+      "matches": ["https://zmenu.zalo.me/*"],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "js": ["js/zadark-sticker-zmenu-main.min.js"]
     }
   ],
   "background": {
@@ -55,7 +73,8 @@
     "storage",
     "unlimitedStorage",
     "declarativeNetRequest",
-    "*://chat.zalo.me/*"
+    "*://chat.zalo.me/*",
+    "https://zmenu.zalo.me/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

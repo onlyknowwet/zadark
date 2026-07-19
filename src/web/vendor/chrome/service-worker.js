@@ -6,10 +6,12 @@
 
 const MSG_ACTIONS = {
   GET_ENABLED_BLOCKING_RULE_IDS: '@ZaDark:GET_ENABLED_BLOCKING_RULE_IDS',
-  UPDATE_ENABLED_BLOCKING_RULE_IDS: '@ZaDark:UPDATE_ENABLED_BLOCKING_RULE_IDS'
+  UPDATE_ENABLED_BLOCKING_RULE_IDS: '@ZaDark:UPDATE_ENABLED_BLOCKING_RULE_IDS',
+  UPLOAD_STICKER: '@ZaDark:Sticker:Upload'
 }
 
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
+const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
 
 const SETTINGS_RULE_KEYS = {
   rules_block_typing: 'enabledBlockTyping',
@@ -63,7 +65,25 @@ chrome.runtime.onInstalled.addListener((details) => {
 
 chrome.runtime.onMessage.addListener(
   (request, sender, sendResponse) => {
-    const { action, payload } = request
+    const { action, payload } = request || {}
+
+    if (action === MSG_ACTIONS.UPLOAD_STICKER) {
+      chrome.tabs.query({ url: 'https://zmenu.zalo.me/*' }, (tabs) => {
+        if (chrome.runtime.lastError || !tabs.length) {
+          sendResponse({ ok: false, message: 'No zmenu tab found. Open zmenu.zalo.me, sign in, and try again.' })
+          return
+        }
+        chrome.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:UploadInTab', payload }, (result) => {
+          const error = chrome.runtime.lastError
+          if (error) {
+            sendResponse({ ok: false, message: 'Could not contact zmenu. Reload the open zmenu tab and try again.' })
+            return
+          }
+          sendResponse(result && typeof result.ok === 'boolean' ? result : malformedUploadResult)
+        })
+      })
+      return true
+    }
 
     if (action === MSG_ACTIONS.GET_ENABLED_BLOCKING_RULE_IDS) {
       chrome.declarativeNetRequest.getEnabledRulesets().then((rulesetIds) => {

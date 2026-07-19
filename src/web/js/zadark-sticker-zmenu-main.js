@@ -65,6 +65,7 @@
     const sourceType = payload.sourceType || (typeof payload.sourceUrl === 'string' ? 'url' : 'file')
     console.debug('[ZaDarkSticker] zmenu MAIN request', { id: request.id, protocol: payload.protocol, sourceType })
     let result
+    let uploadResponse
     try {
       if (payload.protocol !== UPLOAD_PROTOCOL) throw new Error('Incompatible sticker upload request. Reload all zmenu tabs after updating the extension.')
       const hasDataUrl = Object.prototype.hasOwnProperty.call(payload, 'dataUrl')
@@ -110,6 +111,7 @@
       let data
       try {
         data = await response.json()
+        uploadResponse = data
       } catch (error) {
         console.error('[ZaDarkSticker] zmenu MAIN upload JSON parse failed', error && error.message ? error.message : 'Unknown JSON parse failure.')
         if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
@@ -121,9 +123,9 @@
       let parsedPhotoUrl
       try { parsedPhotoUrl = typeof photoUrl === 'string' ? new URL(photoUrl) : null } catch (_) { parsedPhotoUrl = null }
       if (!parsedPhotoUrl || parsedPhotoUrl.protocol !== 'https:' || !parsedPhotoUrl.hostname) throw new Error('Upload succeeded but no valid HTTPS photoUrl was returned.')
-      result = { ok: true, photoUrl, message: 'Uploaded.' }
-    } catch (error) { result = { ok: false, message: error.message || String(error) } }
-    console.debug('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message, photoUrl: result.photoUrl })
+      result = { ok: true, photoUrl, message: 'Uploaded.', uploadResponse }
+    } catch (error) { result = { ok: false, message: error.message || String(error), uploadResponse } }
+    console.debug('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message, photoUrl: result.photoUrl, uploadResponse: result.uploadResponse })
     document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadResult', { detail: JSON.stringify({ id: request.id, result }) }))
   })
 })()

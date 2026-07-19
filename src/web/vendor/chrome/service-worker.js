@@ -154,7 +154,7 @@ const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
   const normalized = !delivery.ok
     ? { ok: false, message: delivery.message }
     : delivery.result && typeof delivery.result.ok === 'boolean' ? delivery.result : malformedUploadResult
-  console.debug('[ZaDarkSticker] background <- zmenu upload response', { tabId: selectedTab.id, ok: normalized.ok, message: normalized.message, photoUrl: normalized.photoUrl })
+  console.debug('[ZaDarkSticker] background <- zmenu upload response', { tabId: selectedTab.id, ok: normalized.ok, message: normalized.message, photoUrl: normalized.photoUrl, uploadResponse: normalized.uploadResponse })
   return normalized
 }
 
@@ -255,7 +255,7 @@ chrome.runtime.onMessage.addListener(
         if (!queryResult.ok) return { ok: false, message: queryResult.message }
         return uploadWithCompatibleZmenuTab(queryResult.tabs, preparedPayload)
       }).then((result) => {
-        console.debug('[ZaDarkSticker] background upload response', { ok: result.ok, message: result.message, photoUrl: result.photoUrl })
+        console.debug('[ZaDarkSticker] background upload response', { ok: result.ok, message: result.message, photoUrl: result.photoUrl, uploadResponse: result.uploadResponse })
         sendResponse(result)
       }).catch((uploadError) => {
           const message = normalizeError(uploadError, 'Could not contact a compatible zmenu tab.').message

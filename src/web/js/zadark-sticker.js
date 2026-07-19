@@ -83,7 +83,8 @@
         sourceType,
         ok: normalized.ok,
         message: normalized.message,
-        photoUrl: normalized.photoUrl
+        photoUrl: normalized.photoUrl,
+        uploadResponse: normalized.uploadResponse
       })
       return normalized
     } catch (error) {

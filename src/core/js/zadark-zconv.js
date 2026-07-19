@@ -193,8 +193,26 @@
     return getConvIdFromElement(main, false)
   }
 
+  function isChatViewMounted () {
+    const chatView = document.getElementById('chatViewContainer')
+    if (!chatView || !chatView.isConnected || chatView.hidden || chatView.getAttribute('aria-hidden') === 'true') {
+      return false
+    }
+
+    const style = window.getComputedStyle(chatView)
+    return style.display !== 'none' && style.visibility !== 'hidden'
+  }
+
   function refreshCurrentConvId () {
-    fireConvIdChange(detectCurrentConvId())
+    const convId = detectCurrentConvId()
+    if (convId) {
+      fireConvIdChange(convId)
+      return
+    }
+
+    if (!isChatViewMounted() && !getSelectedConversation()) {
+      fireConvIdChange(null)
+    }
   }
 
   function handleConversationClick (event) {

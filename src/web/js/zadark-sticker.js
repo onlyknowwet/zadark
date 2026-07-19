@@ -69,13 +69,69 @@
     reader.readAsDataURL(file)
   })
 
-  const syncCurrentConversation = () => {
+  const getDetectedConversationId = () => {
     const detectedId = global.ZaDarkUtils && global.ZaDarkUtils.getCurrentConvId()
-    currentConversationId = typeof detectedId === 'string' && detectedId.trim()
+    return typeof detectedId === 'string' && detectedId.trim()
       ? detectedId.trim()
       : null
-    console.debug('[ZaDarkSticker] conversation state', { conversationId: currentConversationId })
+  }
+
+  const isChatViewMounted = () => {
+    const chatView = document.getElementById('chatViewContainer')
+    if (!chatView || !chatView.isConnected || chatView.hidden || chatView.getAttribute('aria-hidden') === 'true') return false
+    const style = global.getComputedStyle(chatView)
+    return style.display !== 'none' && style.visibility !== 'hidden'
+  }
+
+  const hasSelectedConversation = () => {
+    const conversationList = document.getElementById('conversationListId')
+    return !!(conversationList && conversationList.querySelector([
+      '.msg-item.selected',
+      '.msg-item.active',
+      '.msg-item--selected',
+      '.msg-item[aria-selected="true"]',
+      '.conv-item.selected',
+      '.selected',
+      '[role="option"][aria-selected="true"]',
+      '[aria-current="true"]',
+      '[data-selected="true"]'
+    ].join(',')))
+  }
+
+  const logConversationState = (source) => {
+    console.debug('[ZaDarkSticker] conversation state', { conversationId: currentConversationId, source })
+  }
+
+  const syncCurrentConversation = () => {
+    const detectedId = getDetectedConversationId()
+    if (detectedId) {
+      currentConversationId = detectedId
+      logConversationState('detected')
+    } else if (isChatViewMounted() || hasSelectedConversation()) {
+      logConversationState('retained')
+    } else {
+      currentConversationId = null
+      logConversationState('cleared')
+    }
     return currentConversationId
+  }
+
+  const getConversationIdForSend = () => {
+    const detectedId = getDetectedConversationId()
+    if (detectedId) {
+      currentConversationId = detectedId
+      logConversationState('detected')
+      return currentConversationId
+    }
+
+    if (currentConversationId && isChatViewMounted()) {
+      logConversationState('retained')
+      return currentConversationId
+    }
+
+    currentConversationId = null
+    logConversationState('cleared')
+    return null
   }
 
   document.addEventListener('@ZaDark:CONV_ID_CHANGE', syncCurrentConversation)
@@ -97,7 +153,7 @@
     send: async (input) => {
       try {
         if (!input || (input.mode !== 'direct' && input.mode !== 'group')) throw new Error('Sticker mode must be direct or group.')
-        const receiverId = syncCurrentConversation() || currentConversationId
+        const receiverId = getConversationIdForSend()
         if (!receiverId || !receiverId.trim()) throw new Error('Select a Zalo conversation before sending a sticker.')
         const url = new URL(String(input.stickerUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')

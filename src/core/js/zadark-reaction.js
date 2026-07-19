@@ -594,9 +594,12 @@
       e.stopPropagation()
 
       if (typeof sendReaction === 'function') {
+        const reactionEl = el.closest('.zadark-reaction')
+        const iconInputEl = reactionEl && reactionEl.querySelector('.zadark-reaction__icon-input input')
+        const customIcon = iconInputEl ? iconInputEl.value.trim() : ''
         sendReaction({
           rType: emoji.rType,
-          rIcon: emoji.rIcon
+          rIcon: customIcon || emoji.rIcon
         })
         addRecentEmoji(emoji)
       }
@@ -678,6 +681,21 @@
 
           const popoverContentEl = document.createElement('div')
           popoverContentEl.className = 'zadark-reaction__popover-content'
+          const iconInputEl = document.createElement('input')
+          iconInputEl.type = 'text'
+          iconInputEl.className = 'zadark-reaction__icon-input-control'
+          iconInputEl.placeholder = 'Để trống dùng icon hiện tại'
+          iconInputEl.setAttribute('aria-label', 'rIcon tùy chọn')
+          iconInputEl.addEventListener('click', (e) => e.stopPropagation())
+          iconInputEl.addEventListener('pointerdown', (e) => e.stopPropagation())
+          iconInputEl.addEventListener('keydown', (e) => e.stopPropagation())
+
+          const iconInputLabelEl = document.createElement('label')
+          iconInputLabelEl.className = 'zadark-reaction__icon-input'
+          iconInputLabelEl.textContent = 'rIcon (tùy chọn)'
+          iconInputLabelEl.appendChild(iconInputEl)
+
+          popoverContentEl.appendChild(iconInputLabelEl)
           popoverContentEl.appendChild(popoverContentListEl)
           popoverContentEl.appendChild(popoverContentRecentEl)
 

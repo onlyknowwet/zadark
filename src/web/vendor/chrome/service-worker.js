@@ -14,6 +14,8 @@ const MSG_ACTIONS = {
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
 const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
 const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
+const STICKER_UPLOAD_PROTOCOL = 'source-url-v2'
+const STICKER_UPLOAD_CAPABILITIES = '@ZaDark:Sticker:UploadCapabilities'
 const normalizeError = (error, fallback) => {
   if (error instanceof Error) return error
   if (typeof error === 'string' && error) return new Error(error)
@@ -36,6 +38,52 @@ const validateSendPayload = (payload) => {
 const normalizeSendResult = (result) => result && typeof result.ok === 'boolean' && typeof result.message === 'string'
   ? { ok: result.ok, message: result.message }
   : malformedSendResult
+
+const rankZmenuTabs = (tabs) => tabs.slice().sort((a, b) => {
+  if (!!a.active !== !!b.active) return a.active ? -1 : 1
+  return (b.lastAccessed || 0) - (a.lastAccessed || 0)
+})
+
+const sendMessageToZmenuTab = (tabId, message) => new Promise((resolve) => {
+  chrome.tabs.sendMessage(tabId, message, (result) => {
+    if (chrome.runtime.lastError) {
+      resolve(null)
+      return
+    }
+    resolve(result)
+  })
+})
+
+const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
+  const candidates = rankZmenuTabs(Array.isArray(tabs) ? tabs : [])
+  console.debug('[ZaDarkSticker] upload candidates', { candidateCount: candidates.length })
+  if (!candidates.length) {
+    const result = { ok: false, message: 'No zmenu tab found. Open zmenu.zalo.me, sign in, and try again.' }
+    console.debug('[ZaDarkSticker] upload result', result)
+    return result
+  }
+  let selectedTab
+  for (const tab of candidates) {
+    if (typeof tab.id !== 'number') continue
+    const capabilities = await sendMessageToZmenuTab(tab.id, { action: STICKER_UPLOAD_CAPABILITIES })
+    if (capabilities && capabilities.protocol === STICKER_UPLOAD_PROTOCOL) {
+      selectedTab = tab
+      break
+    }
+  }
+  if (!selectedTab) {
+    const result = { ok: false, message: 'No compatible zmenu tab found. Close and reopen or reload all zmenu tabs after updating the extension.' }
+    console.debug('[ZaDarkSticker] upload result', result)
+    return result
+  }
+  console.debug('[ZaDarkSticker] upload selected tab', { tabId: selectedTab.id, protocol: STICKER_UPLOAD_PROTOCOL })
+  const result = await sendMessageToZmenuTab(selectedTab.id, { action: '@ZaDark:Sticker:UploadInTab', payload })
+  const normalized = result === null
+    ? { ok: false, message: 'Could not contact the selected compatible zmenu tab. Reload it and try again.' }
+    : result && typeof result.ok === 'boolean' ? result : malformedUploadResult
+  console.debug('[ZaDarkSticker] upload result', { ok: normalized.ok, message: normalized.message })
+  return normalized
+}
 
 const SETTINGS_RULE_KEYS = {
   rules_block_typing: 'enabledBlockTyping',
@@ -121,17 +169,17 @@ chrome.runtime.onMessage.addListener(
 
     if (action === MSG_ACTIONS.UPLOAD_STICKER) {
       chrome.tabs.query({ url: 'https://zmenu.zalo.me/*' }, (tabs) => {
-        if (chrome.runtime.lastError || !tabs.length) {
-          sendResponse({ ok: false, message: 'No zmenu tab found. Open zmenu.zalo.me, sign in, and try again.' })
+        const error = chrome.runtime.lastError
+        if (error) {
+          const result = { ok: false, message: 'Could not query zmenu tabs. Reload zmenu and try again.' }
+          console.error('[ZaDarkSticker] upload error:', result.message)
+          sendResponse(result)
           return
         }
-        chrome.tabs.sendMessage(tabs[0].id, { action: '@ZaDark:Sticker:UploadInTab', payload }, (result) => {
-          const error = chrome.runtime.lastError
-          if (error) {
-            sendResponse({ ok: false, message: 'Could not contact zmenu. Reload the open zmenu tab and try again.' })
-            return
-          }
-          sendResponse(result && typeof result.ok === 'boolean' ? result : malformedUploadResult)
+        uploadWithCompatibleZmenuTab(tabs, payload).then(sendResponse).catch((uploadError) => {
+          const message = normalizeError(uploadError, 'Could not contact a compatible zmenu tab.').message
+          console.error('[ZaDarkSticker] upload error:', message)
+          sendResponse({ ok: false, message })
         })
       })
       return true

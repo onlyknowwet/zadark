@@ -1,5 +1,6 @@
 /* zmenu.zalo.me MAIN-world upload bridge. */
 (function () {
+  const UPLOAD_PROTOCOL = 'source-url-v2'
   const MAX_UPLOAD_SIZE = 10 * 1024 * 1024
   const MIME_EXTENSIONS = {
     'image/avif': 'avif',
@@ -31,11 +32,14 @@
     } catch (_) {
       throw new Error('The source image could not be downloaded by zmenu. The image host may block cross-origin requests.')
     }
-    if (!response.ok) throw new Error(`The source image could not be downloaded by zmenu: HTTP ${response.status}.`)
     const contentType = (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase()
+    console.debug('[ZaDarkSticker] zmenu download response', { status: response.status, contentType })
+    if (!response.ok) throw new Error(`The source image could not be downloaded by zmenu: HTTP ${response.status}.`)
     if (!contentType.startsWith('image/')) throw new Error('The source URL did not return an image Content-Type.')
     try {
-      return { blob: await response.blob(), contentType }
+      const blob = await response.blob()
+      console.debug('[ZaDarkSticker] zmenu download', { status: response.status, contentType, size: blob.size })
+      return { blob, contentType }
     } catch (_) {
       throw new Error('The source image could not be downloaded by zmenu. The image host may block cross-origin requests.')
     }
@@ -43,11 +47,20 @@
 
   document.addEventListener('@ZaDark:Sticker:UploadRequest', async (event) => {
     let request
-    try { request = JSON.parse(event.detail) } catch (_) { return }
-    if (!request || typeof request.id !== 'string') return
+    try { request = JSON.parse(event.detail) } catch (_) {
+      console.error('[ZaDarkSticker] zmenu MAIN received malformed upload JSON')
+      return
+    }
+    if (!request || typeof request.id !== 'string') {
+      console.error('[ZaDarkSticker] zmenu MAIN upload request is missing a valid id')
+      return
+    }
+    const payload = request.payload || {}
+    const sourceType = typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+    console.debug('[ZaDarkSticker] zmenu MAIN request', { id: request.id, protocol: payload.protocol, sourceType })
     let result
     try {
-      const payload = request.payload || {}
+      if (payload.protocol !== UPLOAD_PROTOCOL) throw new Error('Incompatible sticker upload request. Reload all zmenu tabs after updating the extension.')
       const hasDataUrl = Object.prototype.hasOwnProperty.call(payload, 'dataUrl')
       const hasSourceUrl = Object.prototype.hasOwnProperty.call(payload, 'sourceUrl')
       if (hasDataUrl === hasSourceUrl) throw new Error('Provide exactly one sticker file or source URL.')
@@ -74,6 +87,7 @@
       const form = new FormData()
       form.append('file', blob, fileName)
       const response = await fetch('/api/admin/upload/photo', { method: 'POST', headers: { Authorization: `Bearer ${auth.access_token}` }, body: form })
+      console.debug('[ZaDarkSticker] zmenu upload HTTP status', { status: response.status })
       if (!response.ok) throw new Error(`Upload failed: ${response.status}`)
       const data = await response.json()
       const photoUrl = data.data && data.data.photoUrl
@@ -82,6 +96,7 @@
       if (!parsedPhotoUrl || parsedPhotoUrl.protocol !== 'https:' || !parsedPhotoUrl.hostname) throw new Error('Upload succeeded but no valid HTTPS photoUrl was returned.')
       result = { ok: true, photoUrl, message: 'Uploaded.' }
     } catch (error) { result = { ok: false, message: error.message || String(error) } }
+    console.debug('[ZaDarkSticker] zmenu MAIN result', { id: request.id, ok: result.ok, message: result.message })
     document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadResult', { detail: JSON.stringify({ id: request.id, result }) }))
   })
 })()

@@ -3,6 +3,7 @@
   const REQUEST_EVENT = '@ZaDark:Sticker:Send'
   const RESPONSE_EVENT = '@ZaDark:Sticker:SendResult'
   const UPLOAD_ACTION = '@ZaDark:Sticker:Upload'
+  const UPLOAD_PROTOCOL = 'source-url-v2'
   const TIMEOUT = 30000
   let currentConversationId = null
 
@@ -150,7 +151,8 @@
     upload: async (file) => {
       try {
         const dataUrl = await readFile(file)
-        const result = await runtimeMessage({ action: UPLOAD_ACTION, payload: { dataUrl, fileName: file.name } })
+        console.debug('[ZaDarkSticker] upload dispatch', { protocol: UPLOAD_PROTOCOL, sourceType: 'file' })
+        const result = await runtimeMessage({ action: UPLOAD_ACTION, payload: { protocol: UPLOAD_PROTOCOL, dataUrl, fileName: file.name } })
         return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
       } catch (error) { return resultError(normalizeError(error, 'Sticker upload failed.').message) }
     },
@@ -158,9 +160,10 @@
       try {
         const url = new URL(String(sourceUrl || '').trim())
         if (url.protocol !== 'https:') throw new Error('Sticker source URL must use HTTPS.')
+        console.debug('[ZaDarkSticker] upload dispatch', { protocol: UPLOAD_PROTOCOL, sourceType: 'url' })
         const result = await runtimeMessage({
           action: UPLOAD_ACTION,
-          payload: { sourceUrl: url.href, fileName: fileNameFromUrl(url) }
+          payload: { protocol: UPLOAD_PROTOCOL, sourceUrl: url.href, fileName: fileNameFromUrl(url) }
         })
         return result && typeof result.ok === 'boolean' ? result : resultError('The extension returned a malformed upload result.')
       } catch (error) { return resultError(normalizeError(error, 'Sticker URL upload failed.').message) }

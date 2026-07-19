@@ -47,6 +47,7 @@ const stickerModeInputElName = 'input:radio[name="sticker-mode"]'
 const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
+const stickerUploadProtocol = 'source-url-v2'
 let stickerBusy = false
 let trustedStickerUrl = null
 
@@ -206,9 +207,10 @@ const uploadStickerFile = async (file) => {
 
   try {
     const dataUrl = await readFileAsDataUrl(file)
+    console.debug('[ZaDarkSticker] popup upload dispatch', { protocol: stickerUploadProtocol, sourceType: 'file' })
     const result = await ZaDarkBrowser.sendMessage({
       action: '@ZaDark:Sticker:Upload',
-      payload: { dataUrl, fileName: file.name }
+      payload: { protocol: stickerUploadProtocol, dataUrl, fileName: file.name }
     })
 
     if (!result || !result.ok || !result.photoUrl) {
@@ -260,9 +262,10 @@ const sendSticker = async () => {
     let sendUrl = stickerUrl
     if (sendUrl !== trustedStickerUrl) {
       setStickerStatus('Đang tải ảnh lên…', 'loading')
+      console.debug('[ZaDarkSticker] popup upload dispatch', { protocol: stickerUploadProtocol, sourceType: 'url' })
       const uploadResult = await ZaDarkBrowser.sendMessage({
         action: '@ZaDark:Sticker:Upload',
-        payload: { sourceUrl: sendUrl, fileName: fileNameFromUrl(sendUrl) }
+        payload: { protocol: stickerUploadProtocol, sourceUrl: sendUrl, fileName: fileNameFromUrl(sendUrl) }
       })
       if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
         const message = uploadResult && typeof uploadResult.message === 'string' ? uploadResult.message : 'Không thể tải ảnh lên.'

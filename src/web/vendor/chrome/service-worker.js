@@ -14,8 +14,8 @@ const MSG_ACTIONS = {
 const RULE_IDS = ['rules_block_typing', 'rules_block_delivered', 'rules_block_seen']
 const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a malformed upload result.' }
 const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
-const STICKER_UPLOAD_PROTOCOL = 'binary-upload-v3'
-const STICKER_UPLOAD_CAPABILITIES = '@ZaDark:Sticker:UploadCapabilities:v3'
+const STICKER_UPLOAD_PROTOCOL = 'binary-upload-v4'
+const STICKER_UPLOAD_CAPABILITIES = '@ZaDark:Sticker:UploadCapabilities:v4'
 const MAX_STICKER_UPLOAD_SIZE = 10 * 1024 * 1024
 const IMAGE_EXTENSIONS = { 'image/avif': 'avif', 'image/gif': 'gif', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/webp': 'webp' }
 const normalizeError = (error, fallback) => {
@@ -23,6 +23,16 @@ const normalizeError = (error, fallback) => {
   if (typeof error === 'string' && error) return new Error(error)
   if (error && typeof error.message === 'string' && error.message) return new Error(error.message)
   return new Error(fallback)
+}
+
+const normalizeUploadApiError = (result) => {
+  const uploadResponse = result && result.uploadResponse
+  const error = uploadResponse && uploadResponse.error
+  if (error === null || error === undefined || error === 0 || error === '0') return result
+  const message = typeof uploadResponse.message === 'string' && uploadResponse.message.trim()
+    ? uploadResponse.message.trim()
+    : `Upload failed with API error ${String(error)}.`
+  return { ...result, ok: false, photoUrl: undefined, message }
 }
 
 const validateSendPayload = (payload) => {
@@ -150,10 +160,11 @@ const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
   const requestLog = { tabId: selectedTab.id, protocol: payload.protocol, sourceType, fileName: payload.fileName }
   if (sourceType === 'url' && typeof payload.sourceUrl === 'string') requestLog.sourceUrl = payload.sourceUrl
   console.debug('[ZaDarkSticker] background -> zmenu upload request', requestLog)
-  const delivery = await sendMessageToZmenuTab(selectedTab.id, { action: '@ZaDark:Sticker:UploadInTab:v3', payload })
-  const normalized = !delivery.ok
+  const delivery = await sendMessageToZmenuTab(selectedTab.id, { action: '@ZaDark:Sticker:UploadInTab:v4', payload })
+  const deliveredResult = !delivery.ok
     ? { ok: false, message: delivery.message }
     : delivery.result && typeof delivery.result.ok === 'boolean' ? delivery.result : malformedUploadResult
+  const normalized = normalizeUploadApiError(deliveredResult)
   console.debug('[ZaDarkSticker] background <- zmenu upload response', { tabId: selectedTab.id, ok: normalized.ok, message: normalized.message, photoUrl: normalized.photoUrl, uploadResponse: normalized.uploadResponse })
   return normalized
 }

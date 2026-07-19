@@ -1,7 +1,7 @@
 /* Isolated-world relay between the service worker and zmenu MAIN world. */
 (function () {
-  const UPLOAD_PROTOCOL = 'binary-upload-v3'
-  const CAPABILITIES_ACTION = '@ZaDark:Sticker:UploadCapabilities:v3'
+  const UPLOAD_PROTOCOL = 'binary-upload-v4'
+  const CAPABILITIES_ACTION = '@ZaDark:Sticker:UploadCapabilities:v4'
   const resultError = (message) => ({ ok: false, message })
   const sourceTypeFor = (payload) => payload && payload.sourceType
     ? payload.sourceType
@@ -17,7 +17,7 @@
       if (settled) return
       settled = true
       clearTimeout(timer)
-      document.removeEventListener('@ZaDark:Sticker:UploadResult:v3', onResult)
+      document.removeEventListener('@ZaDark:Sticker:UploadResult:v4', onResult)
       const normalized = result && typeof result.ok === 'boolean'
         ? result
         : resultError('The zmenu page returned a malformed upload result.')
@@ -35,7 +35,7 @@
       try { response = JSON.parse(event.detail) } catch (_) { return }
       if (response && response.id === id) finish(response.result)
     }
-    document.addEventListener('@ZaDark:Sticker:UploadResult:v3', onResult)
+    document.addEventListener('@ZaDark:Sticker:UploadResult:v4', onResult)
     timer = setTimeout(() => finish({ ok: false, message: 'Uploading timed out and completion is unknown. Check the sticker URL before retrying to avoid uploading twice.' }), 30000)
     const requestLog = {
       id,
@@ -46,7 +46,7 @@
     if (requestLog.sourceType === 'url' && request.payload && typeof request.payload.sourceUrl === 'string') requestLog.sourceUrl = request.payload.sourceUrl
     console.debug('[ZaDarkSticker] zmenu relay -> MAIN upload request', requestLog)
     try {
-      document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadRequest:v3', { detail: JSON.stringify({ id, payload: request.payload }) }))
+      document.dispatchEvent(new CustomEvent('@ZaDark:Sticker:UploadRequest:v4', { detail: JSON.stringify({ id, payload: request.payload }) }))
     } catch (error) {
       const message = normalizeError(error, 'Could not dispatch the upload request to the zmenu page.')
       console.error('[ZaDarkSticker] zmenu relay -> MAIN upload error', message)
@@ -57,7 +57,7 @@
   if (typeof browser !== 'undefined') {
     browser.runtime.onMessage.addListener((request) => {
       if (request && request.action === CAPABILITIES_ACTION) return Promise.resolve({ protocol: UPLOAD_PROTOCOL })
-      if (!request || request.action !== '@ZaDark:Sticker:UploadInTab:v3') return false
+      if (!request || request.action !== '@ZaDark:Sticker:UploadInTab:v4') return false
       return relayUpload(request).catch((error) => {
         const message = normalizeError(error, 'The zmenu upload relay failed.')
         console.error('[ZaDarkSticker] zmenu relay upload error', message)
@@ -70,7 +70,7 @@
         sendResponse({ protocol: UPLOAD_PROTOCOL })
         return false
       }
-      if (!request || request.action !== '@ZaDark:Sticker:UploadInTab:v3') return false
+      if (!request || request.action !== '@ZaDark:Sticker:UploadInTab:v4') return false
       relayUpload(request).then(sendResponse).catch((error) => {
         const message = normalizeError(error, 'The zmenu upload relay failed.')
         console.error('[ZaDarkSticker] zmenu relay upload error', message)

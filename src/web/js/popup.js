@@ -47,7 +47,7 @@ const stickerThumbUrlInputElName = '#js-sticker-thumb-url'
 const stickerStatusElName = '#js-sticker-status'
 const stickerSendButtonElName = '#js-sticker-send'
 const stickerMaxFileSize = 10 * 1024 * 1024
-const stickerUploadProtocol = 'binary-upload-v3'
+const stickerUploadProtocol = 'binary-upload-v4'
 let stickerBusy = false
 let trustedStickerUrl = null
 

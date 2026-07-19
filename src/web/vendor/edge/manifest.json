@@ -74,7 +74,8 @@
   ],
   "host_permissions": [
     "*://chat.zalo.me/*",
-    "https://zmenu.zalo.me/*"
+    "https://zmenu.zalo.me/*",
+    "https://*/*"
   ],
   "declarative_net_request": {
     "rule_resources": [

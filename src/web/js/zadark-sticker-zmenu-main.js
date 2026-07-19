@@ -62,7 +62,7 @@
       return
     }
     const payload = request.payload || {}
-    const sourceType = typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+    const sourceType = payload.sourceType || (typeof payload.sourceUrl === 'string' ? 'url' : 'file')
     console.debug('[ZaDarkSticker] zmenu MAIN request', { id: request.id, protocol: payload.protocol, sourceType })
     let result
     try {

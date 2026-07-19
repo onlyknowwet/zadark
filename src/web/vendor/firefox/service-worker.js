@@ -16,6 +16,8 @@ const malformedUploadResult = { ok: false, message: 'The zmenu tab returned a ma
 const malformedSendResult = { ok: false, message: 'The Zalo chat tab returned a malformed send result.' }
 const STICKER_UPLOAD_PROTOCOL = 'source-url-v2'
 const STICKER_UPLOAD_CAPABILITIES = '@ZaDark:Sticker:UploadCapabilities'
+const MAX_STICKER_UPLOAD_SIZE = 10 * 1024 * 1024
+const IMAGE_EXTENSIONS = { 'image/avif': 'avif', 'image/gif': 'gif', 'image/jpeg': 'jpg', 'image/png': 'png', 'image/svg+xml': 'svg', 'image/webp': 'webp' }
 const normalizeError = (error, fallback) => {
   if (error instanceof Error) return error
   if (typeof error === 'string' && error) return new Error(error)
@@ -37,6 +39,48 @@ const validateSendPayload = (payload) => {
 const normalizeSendResult = (result) => result && typeof result.ok === 'boolean' && typeof result.message === 'string'
   ? { ok: result.ok, message: result.message }
   : malformedSendResult
+
+const safeUploadFileName = (value, mimeType) => {
+  let fileName = typeof value === 'string' ? value.trim().split(/[\\/]/).pop() : ''
+  fileName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/^\.+/, '') || 'sticker'
+  const extension = IMAGE_EXTENSIONS[mimeType]
+  if (extension && !/\.[a-zA-Z0-9]{1,8}$/.test(fileName)) fileName += `.${extension}`
+  return fileName
+}
+
+const arrayBufferToBase64 = (buffer) => {
+  const bytes = new Uint8Array(buffer)
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += 32768) {
+    const end = Math.min(offset + 32768, bytes.length)
+    for (let index = offset; index < end; index++) binary += String.fromCharCode(bytes[index])
+  }
+  return btoa(binary)
+}
+
+const prepareUploadPayload = async (payload) => {
+  if (!payload || typeof payload !== 'object') throw new Error('Malformed sticker upload payload.')
+  if (typeof payload.sourceUrl !== 'string') return { ...payload, sourceType: payload.sourceType || 'file' }
+  let sourceUrl
+  try { sourceUrl = new URL(payload.sourceUrl) } catch (_) { throw new Error('Sticker source URL must be a valid HTTPS URL.') }
+  if (sourceUrl.protocol !== 'https:' || !sourceUrl.hostname) throw new Error('Sticker source URL must be a valid HTTPS URL.')
+  console.debug('[ZaDarkSticker] background source download request', { sourceUrl: sourceUrl.href, credentials: 'omit' })
+  const response = await fetch(sourceUrl.href, { credentials: 'omit' })
+  const mimeType = (response.headers.get('Content-Type') || '').split(';')[0].trim().toLowerCase()
+  const contentLength = response.headers.get('Content-Length')
+  console.debug('[ZaDarkSticker] background source download response', { status: response.status, contentType: mimeType, contentLength })
+  if (!response.ok) throw new Error(`Source image download failed: HTTP ${response.status}.`)
+  if (!mimeType.startsWith('image/')) throw new Error('The source URL did not return an image Content-Type.')
+  const buffer = await response.arrayBuffer()
+  if (!buffer.byteLength) throw new Error('The source image is empty.')
+  if (buffer.byteLength > MAX_STICKER_UPLOAD_SIZE) throw new Error('The source image must not exceed 10 MiB.')
+  return {
+    protocol: STICKER_UPLOAD_PROTOCOL,
+    dataUrl: `data:${mimeType};base64,${arrayBufferToBase64(buffer)}`,
+    fileName: safeUploadFileName(payload.fileName, mimeType),
+    sourceType: 'url'
+  }
+}
 
 const rankZmenuTabs = (tabs) => tabs.slice().sort((a, b) => {
   if (!!a.active !== !!b.active) return a.active ? -1 : 1
@@ -90,7 +134,7 @@ const uploadWithCompatibleZmenuTab = async (tabs, payload) => {
     return result
   }
   console.debug('[ZaDarkSticker] upload selected tab', { tabId: selectedTab.id, protocol: STICKER_UPLOAD_PROTOCOL })
-  const sourceType = typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+  const sourceType = payload.sourceType || (typeof payload.sourceUrl === 'string' ? 'url' : 'file')
   const requestLog = { tabId: selectedTab.id, protocol: payload.protocol, sourceType, fileName: payload.fileName }
   if (sourceType === 'url') requestLog.sourceUrl = payload.sourceUrl
   console.debug('[ZaDarkSticker] background -> zmenu upload request', requestLog)
@@ -176,14 +220,17 @@ browser.runtime.onMessage.addListener(
     if (action === MSG_ACTIONS.UPLOAD_STICKER) {
       const sourceType = payload && typeof payload.sourceUrl === 'string' ? 'url' : 'file'
       console.debug('[ZaDarkSticker] background upload request', { protocol: payload && payload.protocol, sourceType })
-      return queryZmenuTabs().then((queryResult) => {
+      return prepareUploadPayload(payload).then((preparedPayload) => {
+        console.debug('[ZaDarkSticker] background prepared upload payload', { protocol: preparedPayload.protocol, sourceType: preparedPayload.sourceType, fileName: preparedPayload.fileName })
+        return queryZmenuTabs().then((queryResult) => ({ preparedPayload, queryResult }))
+      }).then(({ preparedPayload, queryResult }) => {
         console.debug('[ZaDarkSticker] background zmenu tabs response', {
           ok: queryResult.ok,
           candidateCount: queryResult.tabs ? queryResult.tabs.length : 0,
           message: queryResult.message
         })
         if (!queryResult.ok) return { ok: false, message: queryResult.message }
-        return uploadWithCompatibleZmenuTab(queryResult.tabs, payload || {})
+        return uploadWithCompatibleZmenuTab(queryResult.tabs, preparedPayload)
       }).then((result) => {
         console.debug('[ZaDarkSticker] background upload response', { ok: result.ok, message: result.message, photoUrl: result.photoUrl })
         return result

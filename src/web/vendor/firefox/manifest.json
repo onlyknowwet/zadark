@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "zalodark-fork",
-  "version": "26.2.19",
+  "version": "26.2.20",
   "description": "__MSG_appDesc__",
   "default_locale": "vi",
   "author": "Quaric",
@@ -75,6 +75,7 @@
     "declarativeNetRequest",
     "*://chat.zalo.me/*",
     "https://zmenu.zalo.me/*",
+    "https://*/*",
     "*://fonts.googleapis.com/*"
   ],
   "declarative_net_request": {

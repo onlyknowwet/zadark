@@ -3,7 +3,9 @@
   const UPLOAD_PROTOCOL = 'source-url-v2'
   const CAPABILITIES_ACTION = '@ZaDark:Sticker:UploadCapabilities'
   const resultError = (message) => ({ ok: false, message })
-  const sourceTypeFor = (payload) => payload && typeof payload.sourceUrl === 'string' ? 'url' : 'file'
+  const sourceTypeFor = (payload) => payload && payload.sourceType
+    ? payload.sourceType
+    : payload && typeof payload.sourceUrl === 'string' ? 'url' : 'file'
   const normalizeError = (error, fallback) => error && typeof error.message === 'string' && error.message
     ? error.message
     : typeof error === 'string' && error ? error : fallback

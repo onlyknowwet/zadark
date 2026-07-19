@@ -133,9 +133,10 @@
   const send = async (input) => {
     try {
       if (!input || typeof input !== 'object') throw new Error('Sticker details are required.')
-      const endpoint = 'https://tt-files-wpa.chat.zalo.me/api/message/photo_url?zpw_ver=671&zpw_type=30&nretry=0'
-      console.debug('[ZaDarkSticker] send endpoint', { variant: 'direct', endpoint })
-      console.debug('[ZaDarkSticker] send endpoint', { variant: 'group', endpoint })
+      const directEndpoint = 'https://tt-files-wpa.chat.zalo.me/api/message/photo_url?zpw_ver=671&zpw_type=30&nretry=0'
+      const groupEndpoint = 'https://tt-files-wpa.chat.zalo.me/api/group/photo_url?zpw_ver=688&zpw_type=30&nretry=0'
+      console.debug('[ZaDarkSticker] send endpoint', { variant: 'direct', endpoint: directEndpoint })
+      console.debug('[ZaDarkSticker] send endpoint', { variant: 'group', endpoint: groupEndpoint })
       if (typeof input.receiverId !== 'string' || !input.receiverId.trim()) throw new Error('Receiver ID is required.')
       const stickerUrl = new URL(String(input.stickerUrl || ''))
       if (stickerUrl.protocol !== 'https:') throw new Error('Sticker URL must use HTTPS.')
@@ -166,10 +167,10 @@
         zsource: -1
       }
       const directPayload = { ...basePayload, clientId, toId: receiverId, ttl: 0 }
-      const directAttempt = postVariant({ variant: 'direct', endpoint, payload: directPayload, cipher })
+      const directAttempt = postVariant({ variant: 'direct', endpoint: directEndpoint, payload: directPayload, cipher })
       const groupAttempt = resolveGroupReceiverIdWithFallback(receiverId, cipher).then((groupReceiverId) => {
-        const groupPayload = { ...basePayload, clientId: clientId + 1, grid: groupReceiverId, ttl: 0, visibility: 0 }
-        return postVariant({ variant: 'group', endpoint, payload: groupPayload, cipher })
+        const groupPayload = { ...basePayload, clientId: clientId - 1, grid: groupReceiverId, ttl: 0, visibility: 0 }
+        return postVariant({ variant: 'group', endpoint: groupEndpoint, payload: groupPayload, cipher })
       })
       const attempts = await Promise.allSettled([
         directAttempt,

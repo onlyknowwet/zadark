@@ -4,8 +4,12 @@
   const STICKER_MAX_FILE_SIZE = 10 * 1024 * 1024
   const STICKER_PANEL_ID = 'js-zadark-sticker-panel'
   const STICKER_TRIGGER_ID = 'zadark-sticker-toolbar-trigger'
+  const STICKER_POPOVER_ID = 'zadark-sticker-toolbar-popover'
   let stickerBusy = false
+  let compactStickerBusy = false
   let trustedStickerUrl = null
+  let compactTriggerEl = null
+  let compactPopoverEl = null
 
   const stickerPanelHTML = `
     <section id="js-zadark-sticker-panel" class="zadark-panel zadark-sticker-panel" aria-labelledby="zadark-sticker-title" tabindex="-1">
@@ -38,25 +42,124 @@
 
   const getElement = (id) => document.getElementById(id)
 
-  const focusStickerPanel = () => {
-    const popupEl = document.getElementById('js-zadark-popup')
-    const panelEl = getElement(STICKER_PANEL_ID)
-    if (!popupEl || !panelEl || !popupEl.hasAttribute('data-visible')) return
-
-    if (typeof panelEl.scrollIntoView === 'function') panelEl.scrollIntoView({ block: 'nearest' })
-    panelEl.focus({ preventScroll: true })
+  const setCompactStatus = (message = '', state = '') => {
+    if (!compactPopoverEl) return
+    const statusEl = compactPopoverEl.querySelector('.zadark-sticker-toolbar-popover__status')
+    statusEl.textContent = message
+    statusEl.setAttribute('data-state', state)
   }
 
-  const activateStickerTrigger = (triggerEl) => {
-    document.dispatchEvent(new CustomEvent('zadark-sticker-toolbar-activate'))
-    requestAnimationFrame(() => {
-      const popupEl = document.getElementById('js-zadark-popup')
-      const isOpen = !!popupEl && popupEl.hasAttribute('data-visible')
-      triggerEl.classList.toggle('selected', isOpen)
-      const buttonEl = triggerEl.querySelector('button')
-      if (buttonEl) buttonEl.setAttribute('aria-pressed', isOpen ? 'true' : 'false')
-      focusStickerPanel()
+  const setCompactBusy = (busy) => {
+    compactStickerBusy = busy
+    if (!compactPopoverEl) return
+    const inputEl = compactPopoverEl.querySelector('input')
+    const buttonEl = compactPopoverEl.querySelector('button')
+    inputEl.disabled = busy
+    buttonEl.disabled = busy
+    compactPopoverEl.setAttribute('aria-busy', busy ? 'true' : 'false')
+  }
+
+  const closeCompactPopover = (returnFocus = false) => {
+    const triggerEl = compactTriggerEl
+    const buttonEl = triggerEl && triggerEl.querySelector('button')
+    if (compactPopoverEl) compactPopoverEl.remove()
+    compactPopoverEl = null
+    compactTriggerEl = null
+    if (triggerEl) triggerEl.classList.remove('selected')
+    if (buttonEl) {
+      buttonEl.setAttribute('aria-expanded', 'false')
+      if (returnFocus) buttonEl.focus()
+    }
+  }
+
+  const sendCompactSticker = async () => {
+    if (compactStickerBusy || !compactPopoverEl) return
+    const inputEl = compactPopoverEl.querySelector('input')
+    const stickerUrl = inputEl.value.trim()
+
+    if (!isHttpsImageUrl(stickerUrl)) {
+      setCompactStatus('Nhập một URL ảnh bắt đầu bằng https://.', 'error')
+      inputEl.focus()
+      return
+    }
+    if (!ZaDarkUtils.getCurrentConvId()) {
+      setCompactStatus('Hãy mở một cuộc trò chuyện trước khi gửi.', 'error')
+      return
+    }
+
+    setCompactBusy(true)
+    setCompactStatus('Đang tải ảnh lên…', 'loading')
+    try {
+      const uploadResult = await ZaDarkSticker.uploadUrl(stickerUrl)
+      if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
+        setCompactStatus((uploadResult && uploadResult.message) || 'Không thể tải ảnh lên.', 'error')
+        return
+      }
+      setCompactStatus('Đang gửi sticker…', 'loading')
+      const result = await ZaDarkSticker.send({ stickerUrl: uploadResult.photoUrl })
+      if (!result || !result.ok) {
+        setCompactStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
+        return
+      }
+      setCompactStatus('Đã gửi sticker.', 'success')
+      inputEl.value = ''
+      setTimeout(() => closeCompactPopover(false), 500)
+    } catch (error) {
+      setCompactStatus(error.message || 'Không thể gửi sticker.', 'error')
+    } finally {
+      setCompactBusy(false)
+    }
+  }
+
+  const openCompactPopover = (triggerEl) => {
+    const triggerButtonEl = triggerEl.querySelector('button')
+    triggerEl.insertAdjacentHTML('beforeend', `
+      <div id="${STICKER_POPOVER_ID}" class="zadark-sticker-toolbar-popover" role="dialog" aria-label="Gửi sticker bằng ZaDark">
+        <label class="zadark-sticker-toolbar-popover__field" for="zadark-sticker-toolbar-url">
+          <span>URL ảnh</span>
+          <input id="zadark-sticker-toolbar-url" type="url" inputmode="url" placeholder="https://..." autocomplete="off">
+        </label>
+        <button type="button" class="zadark-sticker-toolbar-popover__send">Gửi</button>
+        <div class="zadark-sticker-toolbar-popover__status" role="status" aria-live="polite"></div>
+      </div>
+    `)
+    compactTriggerEl = triggerEl
+    compactPopoverEl = getElement(STICKER_POPOVER_ID)
+    triggerEl.classList.add('selected')
+    triggerButtonEl.setAttribute('aria-expanded', 'true')
+    const inputEl = compactPopoverEl.querySelector('input')
+    inputEl.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault()
+        sendCompactSticker()
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        closeCompactPopover(true)
+      }
     })
+    compactPopoverEl.querySelector('button').addEventListener('click', sendCompactSticker)
+    inputEl.focus()
+  }
+
+  const toggleCompactPopover = (triggerEl) => {
+    if (compactPopoverEl) {
+      closeCompactPopover(true)
+      return
+    }
+    openCompactPopover(triggerEl)
+  }
+
+  const handleCompactOutsideClick = (event) => {
+    if (!compactPopoverEl || compactTriggerEl.contains(event.target) || compactPopoverEl.contains(event.target)) return
+    closeCompactPopover(false)
+  }
+
+  const handleCompactEscape = (event) => {
+    if (event.key === 'Escape' && compactPopoverEl) {
+      event.preventDefault()
+      closeCompactPopover(true)
+    }
   }
 
   const mountStickerToolbarTrigger = () => {
@@ -65,6 +168,7 @@
 
     const existingTrigger = document.getElementById(STICKER_TRIGGER_ID)
     if (existingTrigger && existingTrigger.parentElement === toolbarEl) return
+    if (compactTriggerEl) closeCompactPopover(false)
     if (existingTrigger) existingTrigger.remove()
 
     const nativeStickerEl = Array.from(toolbarEl.children).find((child) => child.tagName === 'LI')
@@ -75,12 +179,12 @@
     triggerEl.dataset.zadarkStickerTrigger = 'true'
     triggerEl.className = 'zadark-sticker-toolbar-trigger'
     triggerEl.innerHTML = `
-      <button type="button" class="zadark-sticker-toolbar-trigger__button" title="Gửi sticker bằng ZaDark" aria-label="Gửi sticker bằng ZaDark" aria-pressed="false">
+      <button type="button" class="zadark-sticker-toolbar-trigger__button" title="Gửi sticker bằng ZaDark" aria-label="Gửi sticker bằng ZaDark" aria-expanded="false" aria-controls="${STICKER_POPOVER_ID}">
         <i class="zadark-icon zadark-icon--zadark" aria-hidden="true"></i>
       </button>
     `
     const buttonEl = triggerEl.querySelector('button')
-    buttonEl.addEventListener('click', () => activateStickerTrigger(triggerEl))
+    buttonEl.addEventListener('click', () => toggleCompactPopover(triggerEl))
     toolbarEl.insertBefore(triggerEl, nativeStickerEl.nextSibling)
   }
 
@@ -260,6 +364,8 @@
   stickerObserver.observe(document.documentElement, { childList: true, subtree: true })
 
   mountStickerToolbarTrigger()
+  document.addEventListener('click', handleCompactOutsideClick, true)
+  document.addEventListener('keydown', handleCompactEscape, true)
   const toolbarObserver = new MutationObserver((records) => {
     if (records.some(isToolbarMutation)) mountStickerToolbarTrigger()
   })

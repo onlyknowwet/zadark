@@ -83,6 +83,11 @@
   color: var(--zadark-neutral-400);
   font-size: 11px;
 
+  &--drag-active {
+    border-color: var(--zadark-blue-base);
+    background: var(--zadark-blue-700);
+  }
+
   &__field {
     min-width: 0;
 

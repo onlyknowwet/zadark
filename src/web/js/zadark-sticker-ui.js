@@ -7,6 +7,8 @@
   const STICKER_POPOVER_ID = 'zadark-sticker-toolbar-popover'
   let stickerBusy = false
   let compactStickerBusy = false
+  let compactTrustedStickerUrl = null
+  let compactGeneration = 0
   let trustedStickerUrl = null
   let compactTriggerEl = null
   let compactPopoverEl = null
@@ -63,6 +65,9 @@
     const triggerEl = compactTriggerEl
     const buttonEl = triggerEl && triggerEl.querySelector('button')
     if (compactPopoverEl) compactPopoverEl.remove()
+    compactGeneration += 1
+    compactTrustedStickerUrl = null
+    compactStickerBusy = false
     compactPopoverEl = null
     compactTriggerEl = null
     if (triggerEl) triggerEl.classList.remove('selected')
@@ -74,6 +79,9 @@
 
   const sendCompactSticker = async () => {
     if (compactStickerBusy || !compactPopoverEl) return
+    const popoverEl = compactPopoverEl
+    const generation = compactGeneration
+    const isCurrent = () => compactPopoverEl === popoverEl && compactGeneration === generation
     const inputEl = compactPopoverEl.querySelector('input')
     const stickerUrl = inputEl.value.trim()
 
@@ -88,26 +96,71 @@
     }
 
     setCompactBusy(true)
-    setCompactStatus('Đang tải ảnh lên…', 'loading')
+    const isTrusted = stickerUrl === compactTrustedStickerUrl
+    setCompactStatus(isTrusted ? 'Đang gửi sticker…' : 'Đang tải ảnh lên…', 'loading')
     try {
-      const uploadResult = await ZaDarkSticker.uploadUrl(stickerUrl)
-      if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
-        setCompactStatus((uploadResult && uploadResult.message) || 'Không thể tải ảnh lên.', 'error')
-        return
+      let sendUrl = stickerUrl
+      if (!isTrusted) {
+        const uploadResult = await ZaDarkSticker.uploadUrl(stickerUrl)
+        if (!isCurrent()) return
+        if (!uploadResult || !uploadResult.ok || !uploadResult.photoUrl) {
+          setCompactStatus((uploadResult && uploadResult.message) || 'Không thể tải ảnh lên.', 'error')
+          return
+        }
+        sendUrl = uploadResult.photoUrl
+        compactTrustedStickerUrl = sendUrl
+        inputEl.value = sendUrl
       }
       setCompactStatus('Đang gửi sticker…', 'loading')
-      const result = await ZaDarkSticker.send({ stickerUrl: uploadResult.photoUrl })
+      const result = await ZaDarkSticker.send({ stickerUrl: sendUrl })
+      if (!isCurrent()) return
       if (!result || !result.ok) {
         setCompactStatus((result && result.message) || 'Không thể gửi sticker.', 'error')
         return
       }
       setCompactStatus('Đã gửi sticker.', 'success')
       inputEl.value = ''
-      setTimeout(() => closeCompactPopover(false), 500)
+      setTimeout(() => {
+        if (isCurrent()) closeCompactPopover(false)
+      }, 500)
     } catch (error) {
-      setCompactStatus(error.message || 'Không thể gửi sticker.', 'error')
+      if (isCurrent()) setCompactStatus(error.message || 'Không thể gửi sticker.', 'error')
     } finally {
-      setCompactBusy(false)
+      if (isCurrent()) setCompactBusy(false)
+    }
+  }
+
+  const uploadCompactStickerFile = async (file) => {
+    if (compactStickerBusy || !compactPopoverEl) return
+    const popoverEl = compactPopoverEl
+    const generation = compactGeneration
+    const isCurrent = () => compactPopoverEl === popoverEl && compactGeneration === generation
+    if (!file || !file.type || !file.type.startsWith('image/')) {
+      setCompactStatus('Vui lòng chọn một tệp hình ảnh.', 'error')
+      return
+    }
+    if (file.size > STICKER_MAX_FILE_SIZE) {
+      setCompactStatus('Dung lượng ảnh tối đa là 10MB.', 'error')
+      return
+    }
+
+    setCompactBusy(true)
+    setCompactStatus('Đang tải ảnh lên…', 'loading')
+    try {
+      const result = await ZaDarkSticker.upload(file)
+      if (!isCurrent()) return
+      if (!result || !result.ok || !result.photoUrl) {
+        setCompactStatus((result && result.message) || 'Không thể tải ảnh lên.', 'error')
+        return
+      }
+      const inputEl = popoverEl.querySelector('input')
+      compactTrustedStickerUrl = result.photoUrl
+      inputEl.value = result.photoUrl
+      setCompactStatus('Đã tải ảnh. Nhấn “Gửi” để gửi sticker.', 'success')
+    } catch (error) {
+      if (isCurrent()) setCompactStatus(error.message || 'Không thể tải ảnh lên.', 'error')
+    } finally {
+      if (isCurrent()) setCompactBusy(false)
     }
   }
 
@@ -125,9 +178,14 @@
     `)
     compactTriggerEl = triggerEl
     compactPopoverEl = getElement(STICKER_POPOVER_ID)
+    compactGeneration += 1
+    compactTrustedStickerUrl = null
     triggerEl.classList.add('selected')
     triggerButtonEl.setAttribute('aria-expanded', 'true')
     const inputEl = compactPopoverEl.querySelector('input')
+    inputEl.addEventListener('input', () => {
+      if (inputEl.value.trim() !== compactTrustedStickerUrl) compactTrustedStickerUrl = null
+    })
     inputEl.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault()
@@ -139,6 +197,32 @@
       }
     })
     compactPopoverEl.querySelector('button').addEventListener('click', sendCompactSticker)
+    const setDragActive = (active) => {
+      if (!compactPopoverEl) return
+      compactPopoverEl.classList.toggle('zadark-sticker-toolbar-popover--drag-active', active && !compactStickerBusy)
+    }
+    const compactDragEnterEvents = ['dragenter', 'dragover']
+    compactDragEnterEvents.forEach((eventName) => {
+      compactPopoverEl.addEventListener(eventName, (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        setDragActive(true)
+      })
+    })
+    const compactDragLeaveEvents = ['dragleave', 'dragend']
+    compactDragLeaveEvents.forEach((eventName) => {
+      compactPopoverEl.addEventListener(eventName, (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        setDragActive(false)
+      })
+    })
+    compactPopoverEl.addEventListener('drop', (event) => {
+      event.preventDefault()
+      event.stopPropagation()
+      setDragActive(false)
+      uploadCompactStickerFile(event.dataTransfer && event.dataTransfer.files[0])
+    })
     inputEl.focus()
   }
 

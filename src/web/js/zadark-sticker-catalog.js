@@ -1,7 +1,8 @@
 (function () {
   'use strict'
 
-  const CATALOG_URL = 'https://vubaongoc1404.github.io/stickers.json'
+  const CATALOG_URL = 'https://cdn.jsdelivr.net/gh/onlyknowwet/zadark@HEAD/sticker/stickers.yaml'
+  const MAX_CATALOG_BYTES = 2 * 1024 * 1024
   const SEND_ACTION = '@ZaDark:Sticker:SendInCurrentTab'
   const RECENT_KEY = 'zadarkStickerRecent:v1'
   const RECENT_LIMIT = 16
@@ -130,7 +131,17 @@
         referrerPolicy: 'no-referrer'
       }).then(response => {
         if (!response.ok) throw new Error(`Sticker list request failed (${response.status}).`)
-        return response.json()
+        const contentLength = Number(response.headers.get('content-length'))
+        if (Number.isFinite(contentLength) && contentLength > MAX_CATALOG_BYTES) throw new Error('Sticker catalog exceeds the 2 MiB size limit.')
+        return response.text()
+      }).then(source => {
+        if (new Blob([source]).size > MAX_CATALOG_BYTES) throw new Error('Sticker catalog exceeds the 2 MiB size limit.')
+        if (typeof jsyaml === 'undefined' || typeof jsyaml.load !== 'function') throw new Error('Local YAML parser is unavailable. Reinstall or rebuild the extension.')
+        try {
+          return jsyaml.load(source)
+        } catch (error) {
+          throw new Error(`Sticker catalog YAML is invalid: ${error && error.message ? error.message : 'unknown parser error'}`)
+        }
       }).then(normalizeCatalog)
     }
     return catalogPromise
@@ -327,7 +338,7 @@
       nav.hidden = true
       const empty = document.createElement('div')
       empty.className = 'zadark-sticker-catalog__empty'
-      empty.textContent = 'No stickers found in stickers.json.'
+      empty.textContent = 'No stickers found in the catalog YAML.'
       sections.appendChild(empty)
       return
     }
@@ -369,7 +380,7 @@
       sections.textContent = ''
       const empty = document.createElement('div')
       empty.className = 'zadark-sticker-catalog__empty'
-      empty.textContent = error && error.message ? error.message : 'Could not load stickers.json.'
+      empty.textContent = error && error.message ? error.message : 'Could not load the sticker catalog YAML.'
       sections.appendChild(empty)
     } finally {
       setCatalogBusy(root, false)

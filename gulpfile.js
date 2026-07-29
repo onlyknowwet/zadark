@@ -22,6 +22,7 @@ const distUtils = require('./dist-utils')
 const CORE_PATH = './src/core'
 const WEB_PATH = './src/web'
 const PC_PATH = './src/pc'
+const JS_YAML_BROWSER_PATH = './node_modules/js-yaml/dist/browser/js-yaml.umd.min.js'
 
 const getCorePath = (p) => path.join(CORE_PATH, p)
 const getWebPath = (p) => path.join(WEB_PATH, p)
@@ -108,6 +109,7 @@ const buildWeb = (browser) => {
   const imagesDir = `./build/${browser}/images`
   const fontsDir = `./build/${browser}/fonts`
   const rulesDir = `./build/${browser}/rules`
+  const licensesDir = `./build/${browser}/licenses`
 
   return mergeStream(
     src(getWebPath(`./vendor/${browser}/manifest.json`)).pipe(dest(rootDir)),
@@ -127,6 +129,8 @@ const buildWeb = (browser) => {
       .pipe(sort())
       .pipe(concat('libs.min.js'))
       .pipe(dest(libsDir)),
+    src(JS_YAML_BROWSER_PATH).pipe(dest(libsDir)),
+    src(getWebPath('./licenses/**/*')).pipe(dest(licensesDir)),
     src(getWebPath('./images/**/*')).pipe(dest(imagesDir)),
     src(getCorePath('./fonts/**/*')).pipe(dest(fontsDir)),
     src(getCorePath('./images/**/*')).pipe(dest(imagesDir)),
@@ -163,6 +167,7 @@ const buildSafari = () => {
   const fontsDir = path.join(SAFARI_RESOURCES, '/fonts')
   const imagesDir = path.join(SAFARI_RESOURCES, '/images')
   const rulesDir = path.join(SAFARI_RESOURCES, '/rules')
+  const licensesDir = path.join(SAFARI_RESOURCES, '/licenses')
 
   return mergeStream(
     src(getWebPath('./vendor/safari/manifest.json')).pipe(dest(SAFARI_RESOURCES)),
@@ -183,6 +188,8 @@ const buildSafari = () => {
       .pipe(sort())
       .pipe(concat('libs.min.js'))
       .pipe(dest(libsDir)),
+    src(JS_YAML_BROWSER_PATH).pipe(dest(libsDir)),
+    src(getWebPath('./licenses/**/*')).pipe(dest(licensesDir)),
     src(getCorePath('./fonts/**/*')).pipe(dest(fontsDir)),
     src(getCorePath('./images/**/*')).pipe(dest(imagesDir)),
     src(getWebPath('./rules/**/*')).pipe(dest(rulesDir))

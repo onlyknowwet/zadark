@@ -33,6 +33,7 @@
         "js/zadark-sticker.min.js",
         "js/zadark.min.js",
         "js/zadark-sticker-ui.min.js",
+        "libs/js-yaml.umd.min.js",
         "js/zadark-sticker-catalog.min.js"
       ]
     },

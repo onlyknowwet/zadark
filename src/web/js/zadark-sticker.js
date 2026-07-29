@@ -17,7 +17,6 @@
 
   const requestMain = (payload) => new Promise((resolve) => {
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`
-    let timer
     const onResult = (event) => {
       let response
       try { response = JSON.parse(event.detail) } catch (_) { return }
@@ -31,7 +30,7 @@
       resolve(result)
     }
     document.addEventListener(RESPONSE_EVENT, onResult)
-    timer = setTimeout(() => {
+    const timer = setTimeout(() => {
       document.removeEventListener(RESPONSE_EVENT, onResult)
       console.error('[ZaDarkSticker] MAIN send request timed out', { id })
       resolve(resultError('Sending timed out and completion is unknown. Check the conversation before retrying to avoid sending the sticker twice.'))
@@ -199,7 +198,7 @@
         const thumbUrlInput = String(input.thumbUrl || '').trim()
         const thumbUrl = thumbUrlInput ? new URL(thumbUrlInput) : url
         if (thumbUrl.protocol !== 'https:') throw new Error('Sticker thumbnail URL must use HTTPS.')
-        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, thumbUrl: thumbUrl.href, width: 512, height: 512 })
+        return requestMain({ receiverId: receiverId.trim(), stickerUrl: url.href, thumbUrl: thumbUrl.href, width: Number.isFinite(Number(input.width)) && Number(input.width) > 0 ? Math.max(1, Math.min(4096, Math.round(Number(input.width)))) : 512, height: Number.isFinite(Number(input.height)) && Number(input.height) > 0 ? Math.max(1, Math.min(4096, Math.round(Number(input.height)))) : 512 })
       } catch (error) { return resultError(normalizeError(error, 'Sticker send failed.').message) }
     }
   }

@@ -33,7 +33,8 @@
         "js/utils.min.js",
         "js/zadark-sticker.min.js",
         "js/zadark.min.js",
-        "js/zadark-sticker-ui.min.js"
+        "js/zadark-sticker-ui.min.js",
+        "js/zadark-sticker-catalog.min.js"
       ]
     },
     {

@@ -1,0 +1,453 @@
+{
+  "version": 1,
+  "updatedAt": "2026-07-24T00:00:00Z",
+  "categories": [
+    {
+      "id": "lum-xa-lum-xum",
+      "name": "Lộn xộn",
+      "iconUrl": "https://photo-zmini-qrmenu.zadn.vn/images/38a508c9348cddd2849d.jpg",
+      "stickers": [
+        {
+          "id": "lon-xon-01",
+          "name": "Lộn xộn 01",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/359e6a215664bf3ae675.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/359e6a215664bf3ae675.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["tho-bay-mau"]
+        },
+        {
+          "id": "lon-xon-02",
+          "name": "Lộn xộn 02",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/857bb7ff8bba62e43bab.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/857bb7ff8bba62e43bab.jpg",
+          "width": 164,
+          "height": 128,
+          "tags": ["hello"]
+        }
+      ]
+    },
+    {
+      "id": "cho-rach-ao-om",
+      "name": "Nudaeng",
+      "iconUrl": "https://photo-zmini-qrmenu.zadn.vn/images/38a508c9348cddd2849d.jpg",
+      "stickers": [
+        {
+          "id": "Nudaeng-01",
+          "name": "Nudaeng 01",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/38a508c9348cddd2849d.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["ngheo"]
+        },{
+          "id": "Nudaeng-02",
+          "name": "Nudaeng-02",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/467a77164b53a20dfb42.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["ia"]
+        }
+      ]
+    },
+    {
+      "id": "meo-capoo",
+      "name": "Capoo",
+      "stickers": [
+        {
+          "id": "capoo-01",
+          "name": "Capoo 01",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/c912677a5b3fb261eb2e.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/c912677a5b3fb261eb2e.jpg",
+          "width": 320,
+          "height": 248,
+          "tags": ["huh"]
+        }
+      ]
+    },
+    {
+      "id": "quby",
+      "name": "Quby",
+      "iconUrl": "https://photo-zmini-qrmenu.zadn.vn/images/157758c8648d8dd3d49c.jpg",
+      "stickers": [
+        {
+          "id": "quby-01",
+          "name": "Quby 01",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/157758c8648d8dd3d49c.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/157758c8648d8dd3d49c.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-02",
+          "name": "Quby 02",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/1a7c6cfc50b9b9e7e0a8.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/1a7c6cfc50b9b9e7e0a8.jpg",
+          "width": 358,
+          "height": 358,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-03",
+          "name": "Quby 03",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/1eaa6c1e505bb905e04a.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/1eaa6c1e505bb905e04a.jpg",
+          "width": 512,
+          "height": 418,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-04",
+          "name": "Quby 04",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/223f188024c5cd9b94d4.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/223f188024c5cd9b94d4.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-05",
+          "name": "Quby 05",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/296e9dd8a19d48c3118c.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/296e9dd8a19d48c3118c.jpg",
+          "width": 305,
+          "height": 250,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-06",
+          "name": "Quby 06",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/30525bd267978ec9d786.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/30525bd267978ec9d786.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-08",
+          "name": "Quby 08",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/3623ba9f86da6f8436cb.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/3623ba9f86da6f8436cb.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-09",
+          "name": "Quby 09",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/417667fd5bb8b2e6eba9.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/417667fd5bb8b2e6eba9.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-10",
+          "name": "Quby 10",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/41cb3a7d0638ef66b629.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/41cb3a7d0638ef66b629.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-11",
+          "name": "Quby 11",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/557ceecad28f3bd1629e.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/557ceecad28f3bd1629e.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-12",
+          "name": "Quby 12",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/625249ed75a89cf6c5b9.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/625249ed75a89cf6c5b9.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-13",
+          "name": "Quby 13",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6ac1d340ef05065b5f14.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6ac1d340ef05065b5f14.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-14",
+          "name": "Quby 14",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6b15418d7dc89496cdd9.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6b15418d7dc89496cdd9.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-15",
+          "name": "Quby 15",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6da6d410e855010b5844.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6da6d410e855010b5844.jpg",
+          "width": 200,
+          "height": 200,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-16",
+          "name": "Quby 16",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6f434ffc73b99ae7c3a8.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6f434ffc73b99ae7c3a8.jpg",
+          "width": 360,
+          "height": 360,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-17",
+          "name": "Quby 17",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6f914b2e776b9e35c77a.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/6f914b2e776b9e35c77a.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-18",
+          "name": "Quby 18",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/7687391f055aec04b54b.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/7687391f055aec04b54b.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-19",
+          "name": "Quby 19",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/7dffcb49f70c1e52471d.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/7dffcb49f70c1e52471d.jpg",
+          "width": 512,
+          "height": 403,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-20",
+          "name": "Quby 20",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/81bace05f2401b1e4251.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/81bace05f2401b1e4251.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-21",
+          "name": "Quby 21",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/83b8a4059840711e2851.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/83b8a4059840711e2851.jpg",
+          "width": 220,
+          "height": 220,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-22",
+          "name": "Quby 22",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/896b33dd0f98e6c6bf89.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/896b33dd0f98e6c6bf89.jpg",
+          "width": 200,
+          "height": 200,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-23",
+          "name": "Quby 23",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/8af4b84b840e6d50341f.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/8af4b84b840e6d50341f.jpg",
+          "width": 360,
+          "height": 360,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-24",
+          "name": "Quby 24",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/8e4000fc3cb9d5e78ca8.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/8e4000fc3cb9d5e78ca8.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-25",
+          "name": "Quby 25",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/940fc983f5c61c9845d7.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/940fc983f5c61c9845d7.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-26",
+          "name": "Quby 26",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/a66395dca99940c71988.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/a66395dca99940c71988.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-27",
+          "name": "Quby 27",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ac05d1baedff04a15dee.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ac05d1baedff04a15dee.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-28",
+          "name": "Quby 28",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/b03211b32df6c4a89de7.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/b03211b32df6c4a89de7.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-29",
+          "name": "Quby 29",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/b7e98e56b2135b4d0202.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/b7e98e56b2135b4d0202.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-30",
+          "name": "Quby 30",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bb169da9a1ec48b211fd.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bb169da9a1ec48b211fd.jpg",
+          "width": 256,
+          "height": 256,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-31",
+          "name": "Quby 31",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bc0803893fccd6928fdd.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bc0803893fccd6928fdd.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-32",
+          "name": "Quby 32",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bca39b1ca7594e071748.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/bca39b1ca7594e071748.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-33",
+          "name": "Quby 33",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/c754a4eb98ae71f028bf.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/c754a4eb98ae71f028bf.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-34",
+          "name": "Quby 34",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/d049a3c99f8c76d22f9d.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/d049a3c99f8c76d22f9d.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-35",
+          "name": "Quby 35",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/dadaff65c3202a7e7331.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/dadaff65c3202a7e7331.jpg",
+          "width": 512,
+          "height": 512,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-36",
+          "name": "Quby 36",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/dba3a3159f50760e2f41.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/dba3a3159f50760e2f41.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-37",
+          "name": "Quby 37",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/df82a6349a71732f2a60.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/df82a6349a71732f2a60.jpg",
+          "width": 240,
+          "height": 240,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-38",
+          "name": "Quby 38",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e43b53ba6fff86a1dfee.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e43b53ba6fff86a1dfee.jpg",
+          "width": 208,
+          "height": 208,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-39",
+          "name": "Quby 39",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e59b942fa86a4134187b.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e59b942fa86a4134187b.jpg",
+          "width": 512,
+          "height": 421,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-40",
+          "name": "Quby 40",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e5db435a7f1f9641cf0e.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/e5db435a7f1f9641cf0e.jpg",
+          "width": 307,
+          "height": 307,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-41",
+          "name": "Quby 41",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ed2e99aea5eb4cb515fa.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ed2e99aea5eb4cb515fa.jpg",
+          "width": 320,
+          "height": 320,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-42",
+          "name": "Quby 42",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ed7255f369b680e8d9a7.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/ed7255f369b680e8d9a7.jpg",
+          "width": 176,
+          "height": 176,
+          "tags": ["quby"]
+        },
+        {
+          "id": "quby-43",
+          "name": "Quby 43",
+          "stickerUrl": "https://photo-zmini-qrmenu.zadn.vn/images/fe00dabde6f80fa656e9.jpg",
+          "thumbUrl": "https://photo-zmini-qrmenu.zadn.vn/images/fe00dabde6f80fa656e9.jpg",
+          "width": 256,
+          "height": 256,
+          "tags": ["quby"]
+        }
+      ]
+    }
+  ]
+}

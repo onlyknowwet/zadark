@@ -131,8 +131,8 @@
       const thumbUrl = thumbUrlInput ? new URL(thumbUrlInput) : stickerUrl
       if (thumbUrl.protocol !== 'https:') throw new Error('Sticker thumbnail URL must use HTTPS.')
       const normalizedThumbUrl = thumbUrl.href
-      const width = 512
-      const height = 512
+      const width = Number.isFinite(Number(input.width)) && Number(input.width) > 0 ? Math.max(1, Math.min(4096, Math.round(Number(input.width)))) : 512
+      const height = Number.isFinite(Number(input.height)) && Number(input.height) > 0 ? Math.max(1, Math.min(4096, Math.round(Number(input.height)))) : 512
       const imei = localStorage.z_uuid
       if (!imei) throw new Error('Missing z_uuid. Sign in to chat.zalo.me and try again.')
       const login = await getJson('login-info', `https://wpa.chat.zalo.me/api/login/getLoginInfo?imei=${encodeURIComponent(imei)}`)

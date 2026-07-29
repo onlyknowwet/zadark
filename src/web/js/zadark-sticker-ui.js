@@ -60,7 +60,7 @@
     compactStickerBusy = busy
     if (!compactPopoverEl) return
     const inputEls = compactPopoverEl.querySelectorAll('input')
-    const buttonEl = compactPopoverEl.querySelector('button')
+    const buttonEl = compactPopoverEl.querySelector('.zadark-sticker-toolbar-popover__send')
     inputEls.forEach((inputEl) => { inputEl.disabled = busy })
     buttonEl.disabled = busy
     compactPopoverEl.setAttribute('aria-busy', busy ? 'true' : 'false')
@@ -224,7 +224,7 @@
         closeCompactPopover(true)
       }
     })
-    compactPopoverEl.querySelector('button').addEventListener('click', sendCompactSticker)
+    compactPopoverEl.querySelector('.zadark-sticker-toolbar-popover__send').addEventListener('click', sendCompactSticker)
     const setDragActive = (active) => {
       if (!compactPopoverEl) return
       compactPopoverEl.classList.toggle('zadark-sticker-toolbar-popover--drag-active', active && !compactStickerBusy)
